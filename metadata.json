@@ -1,0 +1,7 @@
+{
+  "name": "Life Orchestrator",
+  "description": "A holistic AI life-management agent designed to balance career, family, and well-being using Gemini 3's reasoning capabilities.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
