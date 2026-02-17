@@ -1,4 +1,11 @@
 
+
+export interface UserProfile {
+  id: string;
+  name?: string;
+  preferences?: Record<string, any>;
+}
+
 export interface Person {
   name: string;
   relation: string; // e.g., "Grandmother", "Best Friend", "College Roommate"

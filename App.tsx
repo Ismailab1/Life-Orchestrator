@@ -12,6 +12,7 @@ import { CalendarImportModal } from './components/CalendarImportModal';
 import { compressImage } from './services/imageService';
 import { storageService } from './services/storageService';
 import { StorageManager } from './components/StorageManager';
+import { db } from './services/db';
 
 declare global {
   interface Window {
@@ -60,7 +61,13 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   const [showSyncInfo, setShowSyncInfo] = useState<{ type: 'import' | 'export' | 'signout', visible: boolean, error?: string }>({ type: 'import', visible: false });
   const [showImportModal, setShowImportModal] = useState(false);
   const [showStorageManager, setShowStorageManager] = useState(false);
-  const [storageStats, setStorageStats] = useState<StorageStats>(() => storageService.getStats());
+  const [storageStats, setStorageStats] = useState<StorageStats>({
+      usedBytes: 0, 
+      totalQuota: 5242880, 
+      percentage: 0, 
+      breakdown: { messages: 0, ledger: 0, memories: 0, inventory: 0 }, 
+      messagesByDate: {} 
+  });
 
   const [ledger, setLedger] = useState<RelationshipLedger>(() => {
     if (mode === 'live') {
@@ -176,18 +183,78 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   });
 
   useEffect(() => {
-    localStorage.setItem('life_last_active', Date.now().toString());
-  }, [allMessages, ledger, inventory]);
+    if (mode === 'live') {
+        const loadData = async () => {
+            setIsLoading(true);
+            try {
+                // Mock user ID for now - in real app this comes from auth
+                const userId = 'user_default'; 
+                
+                const savedLedger = await db.getLedger(userId);
+                if (savedLedger) setLedger(savedLedger);
+                
+                const savedInventory = await db.getInventory(userId);
+                if (savedInventory) setInventory(savedInventory);
+                
+                // Load messages for current date + reasonable history window if needed
+                // For simplicity in this view, we might just load today's messages
+                // But chat interface expects a full history object. 
+                // We'll load all messages for the user.
+                const allMsgs = await db.getAllMessages(userId);
+                const history: ChatHistory = {};
+                allMsgs.forEach(m => {
+                    const d = new Date(m.timestamp).toLocaleDateString('en-CA');
+                    if (!history[d]) history[d] = [];
+                    history[d].push(m);
+                });
+                setAllMessages(history);
+
+                const savedMemories = await db.getMemories(userId);
+                setMemories(savedMemories);
+
+            } catch (error) {
+                console.error("Failed to load data from DB", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadData();
+    }
+    // Demo mode static init logic is already in useState initializers for fallbacks or we can keep it there
+  }, [mode]);
+
+  useEffect(() => {
+      storageService.getStats().then(setStorageStats);
+  }, [ledger, inventory, memories, allMessages, mode]);
 
   useEffect(() => { 
     if (mode === 'live') {
-        localStorage.setItem('life_ledger', JSON.stringify(ledger)); 
-        localStorage.setItem('life_inventory', JSON.stringify(inventory)); 
-        localStorage.setItem('life_messages', JSON.stringify(allMessages));
+        const userId = 'user_default';
+        db.saveLedger(userId, ledger); 
+        db.saveInventory(userId, inventory); 
+        // We don't save all messages here largely, we save them individually as they come in.
+        // But for sync consistency if we modify history structure:
+        // Actually, let's not save *all* messages on every render. That's expensive.
+        // Messages are append-only mostly.
     }
-    localStorage.setItem('life_memories', JSON.stringify(memories));
-    setStorageStats(storageService.getStats());
-  }, [ledger, inventory, memories, allMessages, mode]);
+    // Memories saved on change ideally
+  }, [ledger, inventory, mode]);
+
+  // Persist memories when they change
+  useEffect(() => {
+      if (mode === 'live') {
+          const userId = 'user_default';
+          // efficient? no, but safe for now. Ideally saveMemory tool saves directly to DB.
+          // But our tool executor updates React state.
+          // let's iterate and save new ones? 
+          // Simplest: just ensure they are saved. 
+          // Actually, let's trust the tool executor to save to DB?
+          // No, the tool executor in App.tsx just updates state.
+          // We need to sync state to DB.
+          memories.forEach(m => db.saveMemory(userId, m));
+      }
+  }, [memories, mode]);
+
 
   const ledgerRef = useRef<RelationshipLedger>(ledger);
   useEffect(() => { ledgerRef.current = ledger; }, [ledger]);
@@ -209,7 +276,21 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
 
   const updateCurrentDayMessages = (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
       const key = toDateString(currentDate);
-      setAllMessages(prev => ({ ...prev, [key]: updater(prev[key] || []) }));
+      setAllMessages(prev => {
+          const updatedDay = updater(prev[key] || []);
+          // Sync to DB if live
+          if (mode === 'live') {
+             const userId = 'user_default';
+             updatedDay.forEach(async msg => {
+                 // Optimization: only save if new or changed? 
+                 // For now, save all to be safe or just the last one.
+                 // Ideally we know which one changed.
+                 // Let's assume the updater adds one at the end.
+                 await db.addMessage(userId, msg);
+             });
+          }
+          return { ...prev, [key]: updatedDay };
+      });
   };
 
   const handleSendMessage = async (text: string, media: string | null) => {
@@ -224,12 +305,40 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     const compressedMedia = media ? await compressImage(media) : null;
     const userMsgId = Math.random().toString(36).substr(2, 9);
     const modelMsgId = Math.random().toString(36).substr(2, 9);
+    const userId = 'user_default';
 
-    updateCurrentDayMessages(prev => [...prev, { id: userMsgId, role: 'user', text, timestamp: new Date().toISOString(), media: compressedMedia || undefined }]);
-    updateCurrentDayMessages(prev => [...prev, { id: modelMsgId, role: 'model', text: '', thought: '', timestamp: new Date().toISOString() }]);
+    const userMsg: ChatMessage = { id: userMsgId, role: 'user', text, timestamp: new Date().toISOString(), media: compressedMedia || undefined };
+    const modelMsg: ChatMessage = { id: modelMsgId, role: 'model', text: '', thought: '', timestamp: new Date().toISOString() };
+
+    updateCurrentDayMessages(prev => [...prev, userMsg]);
+    updateCurrentDayMessages(prev => [...prev, modelMsg]);
+    
+    // Save user message to DB
+    if (mode === 'live') {
+        // Generate embedding for user message for future retrieval
+        const embedding = await geminiService.getEmbedding(text);
+        await db.addMessage(userId, userMsg, embedding);
+    }
     
     setIsLoading(true);
     try {
+      // RAG: Retrieval Step
+      let ragContext = "";
+      if (mode === 'live') {
+          const embedding = await geminiService.getEmbedding(text);
+          if (embedding) {
+              const similarMemories = await db.findSimilarMemories(userId, embedding);
+              const similarMsgs = await db.findSimilarMessages(userId, embedding);
+              
+              const memoryText = similarMemories.map(m => `[Memory]: ${m.content}`).join('\n');
+              const msgText = similarMsgs.map(m => `[Past Chat ${new Date(m.timestamp).toLocaleDateString()}]: ${m.text}`).join('\n');
+              
+              if (memoryText || msgText) {
+                  ragContext = `Relevant Context:\n${memoryText}\n${msgText}`;
+              }
+          }
+      }
+
       await geminiService.sendMessageStream(text, compressedMedia, executors, (streamText, streamThought) => {
           updateCurrentDayMessages(prev => {
               const newArr = [...prev]; const last = newArr[newArr.length - 1];
@@ -237,12 +346,21 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
               return newArr;
           });
           if (streamText || streamThought) setIsLoading(false);
-      }, getModeTime());
+      }, getModeTime(), { ragContext }); // Pass RAG context
+      
       updateCurrentDayMessages(prev => {
           const newArr = [...prev]; const last = newArr[newArr.length - 1];
           if (last && last.role === 'model' && last.id === modelMsgId) {
               if (pendingProposalRef.current) last.proposal = pendingProposalRef.current;
               if (pendingContactRef.current) last.contactProposal = pendingContactRef.current;
+              
+              // Save model response to DB
+              if (mode === 'live') {
+                  const finalMsg = { ...last };
+                  geminiService.getEmbedding(last.text || "").then(emb => {
+                       db.addMessage(userId, finalMsg, emb);
+                  });
+              }
           }
           pendingProposalRef.current = null; pendingContactRef.current = null;
           return newArr;
