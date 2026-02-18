@@ -24,7 +24,7 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
               {isPrivacy ? 'Privacy Policy' : 'Terms of Service'}
             </h1>
             <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-1">
-              Last Updated: March 2024
+              Last Updated: February 17, 2026
             </p>
           </div>
           <button 
@@ -84,7 +84,7 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
               <section>
                 <h2 className="text-xl font-bold text-indigo-400">2. AI Accuracy & Limitations</h2>
                 <p>
-                  Life Orchestrator utilizes the Gemini 3 Large Language Model. While highly advanced, AI models can sometimes misinterpret complex scheduling constraints. You are solely responsible for verifying your final schedule before committing to meetings or personal events.
+                  Life Orchestrator utilizes Google's Gemini models. While highly advanced, AI models can sometimes misinterpret complex scheduling constraints. You are solely responsible for verifying your final schedule before committing to meetings or personal events.
                 </p>
               </section>
 
