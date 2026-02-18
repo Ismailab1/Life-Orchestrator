@@ -7,9 +7,11 @@ yarn-error.log*
 .git
 .gitignore
 .dockerignore
-.env.local
+
 .vscode
 .idea
 Dockerfile
-nginx.conf
+
 README.md
+
+ai_studio_demo/

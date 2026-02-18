@@ -114,7 +114,10 @@ export class LifeDatabase {
   
   async getAllMessages(userId: string): Promise<ChatMessage[]> {
       const db = await this.dbPromise;
-      return await db.getAllFromIndex('conversations', 'by-user', userId);
+      // Use the compound index [userId, timestamp] to get messages sorted by time
+      // IDBKeyRange.bound works with arrays for compound indexes
+      const range = IDBKeyRange.bound([userId, ''], [userId, '\uffff']);
+      return await db.getAllFromIndex('conversations', 'by-date', range);
   }
 
   async saveMemory(userId: string, memory: Memory, embedding?: number[]): Promise<void> {
@@ -183,9 +186,77 @@ export class LifeDatabase {
   }
   
   // --- Stats ---
-  async getStats(): Promise<{ usage: number, count: number }> {
-      // Approximate
-      return { usage: 0, count: 0 }; 
+  async getStats(): Promise<{ usage: number, count: number, breakdown: any, messagesByDate: Record<string, number> }> {
+      const db = await this.dbPromise;
+      let totalUsage = 0;
+      let totalCount = 0;
+      const breakdown = { messages: 0, ledger: 0, memories: 0, inventory: 0 };
+      const messagesByDate: Record<string, number> = {};
+
+      const tx = db.transaction(['conversations', 'memories', 'inventory', 'ledger'], 'readonly');
+
+      // Helper to estimate size
+      const getSize = (obj: any) => JSON.stringify(obj).length;
+
+      // 1. Conversations
+      let cursor: any = await tx.objectStore('conversations').openCursor();
+      while (cursor) {
+          const size = getSize(cursor.value);
+          breakdown.messages += size;
+          totalUsage += size;
+          totalCount++;
+          
+          const dateKey = new Date(cursor.value.timestamp).toLocaleDateString('en-CA');
+          messagesByDate[dateKey] = (messagesByDate[dateKey] || 0) + size;
+          
+          cursor = await cursor.continue();
+      }
+
+      // 2. Memories
+      cursor = await tx.objectStore('memories').openCursor();
+      while (cursor) {
+          const size = getSize(cursor.value);
+          breakdown.memories += size;
+          totalUsage += size;
+          totalCount++;
+          cursor = await cursor.continue();
+      }
+
+      // 3. Inventory
+      cursor = await tx.objectStore('inventory').openCursor();
+      while (cursor) {
+          const size = getSize(cursor.value);
+          breakdown.inventory += size;
+          totalUsage += size;
+          totalCount++; 
+          cursor = await cursor.continue();
+      }
+
+      // 4. Ledger
+      cursor = await tx.objectStore('ledger').openCursor();
+      while (cursor) {
+          const size = getSize(cursor.value);
+          breakdown.ledger += size;
+          totalUsage += size;
+          totalCount++;
+          cursor = await cursor.continue();
+      }
+
+      return { usage: totalUsage, count: totalCount, breakdown, messagesByDate };
+  }
+
+  async clearAll(userId: string): Promise<void> {
+    const db = await this.dbPromise;
+    const tx = db.transaction(['conversations', 'memories', 'inventory', 'ledger', 'tasks', 'users'], 'readwrite');
+    await Promise.all([
+        tx.objectStore('conversations').clear(),
+        tx.objectStore('memories').clear(),
+        tx.objectStore('inventory').clear(),
+        tx.objectStore('ledger').clear(),
+        tx.objectStore('tasks').clear(),
+        tx.objectStore('users').delete(userId), // Or clear if we want to remove all users
+    ]);
+    await tx.done;
   }
 }
 

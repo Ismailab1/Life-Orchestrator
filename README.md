@@ -3,13 +3,23 @@
 ## Inspiration
 The inspiration for **Life Orchestrator** stems from the modern "productivity paradox." We have more tools than ever to manage our tasks, yet we feel more overwhelmed and disconnected. Traditional calendars treat our lives as a series of disconnected blocks, ignoring the emotional weight of a relationship "overdue" status or the energy required for "deep work." I wanted to build an agent that doesn't just list what you have to do, but *reasons* about how those things interact—a tool that prioritizes a 15-minute call with a recovering family member as highly as a corporate board meeting.
 
+## Live Demo
+Check out the live application here: [Life Orchestrator Live](https://life-orchestrator-662200881058.us-central1.run.app)
+
 ## What it does
-Life Orchestrator acts as an autonomous Chief Operating Officer (COO) for your life. It combines a **Kinship Ledger** (tracking relationship health) with a **Life Inventory** (managing career and health tasks). Using Gemini 3's advanced reasoning, it proactively "orchestrates" your day—finding optimal windows for flexible tasks around your fixed anchors, ensuring you never miss a critical meeting or a vital connection with a loved one.
+Life Orchestrator acts as an autonomous Chief Operating Officer (COO) for your life. It combines a **Kinship Ledger** (tracking relationship health) with a **Life Inventory** (managing career and health tasks). Using **Gemini 3 Flash Preview**'s advanced reasoning, it proactively "orchestrates" your day—finding optimal windows for flexible tasks around your fixed anchors, ensuring you never miss a critical meeting or a vital connection with a loved one.
+
+## Key Features
+- **Smart Orchestration**: Automatically proposes optimal schedules based on your tasks and constraints.
+- **Kinship Ledger**: Tracks relationship health and proactively suggests times to connect.
+- **Local-First Privacy**: All data is stored locally in your browser.
+- **Storage Management**: Visualizes your local storage usage and content breakdown to stay within browser limits.
+- **Token Awareness**: Displays real-time token usage for transparency.
 
 ## How we built it
 The application is built using a **Local-First Architecture** to ensure complete user sovereignty:
 - **Frontend**: React 19 with TypeScript and Tailwind CSS for a world-class, responsive UI.
-- **Logic Engine**: **Google Gemini 3** handles all real-time orchestration. It utilizes a `thinkingBudget` to deliberate over complex schedule conflicts and relationship dynamics.
+- **Logic Engine**: **Google Gemini 3 Flash Preview** handles all real-time orchestration. It utilizes a `thinkingBudget` to deliberate over complex schedule conflicts and relationship dynamics.
 - **State Management**: Data persistence is handled purely via browser `localStorage`. I implemented a custom storage service to monitor and manage the 5MB quota.
 - **Integration**: Real-time synchronization with **Google Calendar** via the GAPI/GSI libraries for bi-directional flow.
 
@@ -42,7 +52,7 @@ As the context window grows to accommodate years of memories, we are implementin
 - **Languages**: TypeScript, JavaScript, HTML5, CSS3
 - **Frameworks**: React 19
 - **Styling**: Tailwind CSS
-- **AI Platform**: Google Gemini 3 (via @google/genai SDK)
+- **AI Platform**: Google Gemini 3 Flash Preview (via @google/genai SDK v1.38)
 - **APIs**: Google Calendar API (GAPI/GSI)
 - **Cloud Platforms**: Google Cloud Platform (GCP)
 - **Deployment**: Google Cloud Run

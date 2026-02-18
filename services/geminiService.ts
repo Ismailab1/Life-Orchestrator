@@ -246,28 +246,13 @@ export class GeminiService {
     return thoughts;
   }
 
-  async getEmbedding(text: string): Promise<number[] | undefined> {
-    try {
-        // cast to any to avoid TS error with strict types
-        const model = (this.ai as any).getGenerativeModel({ model: "text-embedding-004"});
-        const result = await model.embedContent(text);
-        return result.embedding.values;
-    } catch (e) {
-        console.error("Embedding failed", e);
-        return undefined;
-    }
-  }
-
   async sendMessage(
     message: string, 
     media: string | null, 
     executors: ToolExecutors,
-    currentTimeString?: string,
-    contextArgs?: { 
-        ragContext?: string // Passed in from App level RAG query
-    }
+    currentTimeString?: string
   ): Promise<{ text: string, thought: string }> {
-    if (!this.chat) this.startNewSession(); // Default session if somehow null
+    if (!this.chat) this.startNewSession();
 
     const parts: Part[] = [];
     if (media) {
@@ -278,14 +263,7 @@ export class GeminiService {
     }
     
     const timeStr = currentTimeString || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    
-    // Inject RAG context if provided
-    let finalMessage = message;
-    if (contextArgs?.ragContext) {
-        finalMessage = `Context from previous conversations/memories:\n${contextArgs.ragContext}\n\nUser Input: ${message}`;
-    }
-
-    parts.push({ text: finalMessage + `\n\n[System Note: Current Local Time is ${timeStr}]` });
+    parts.push({ text: message + `\n\n[System Note: Current Local Time is ${timeStr}]` });
 
     let accumulatedThought = "";
     let response = await this.retry<GenerateContentResponse>(() => this.chat!.sendMessage({ message: parts }));
@@ -325,10 +303,7 @@ export class GeminiService {
     media: string | null, 
     executors: ToolExecutors,
     onUpdate: (text: string, thought: string) => void,
-    currentTimeString?: string,
-    contextArgs?: { 
-        ragContext?: string 
-    }
+    currentTimeString?: string
   ): Promise<{ text: string, thought: string }> {
     if (!this.chat) this.startNewSession();
 
@@ -338,14 +313,8 @@ export class GeminiService {
       if (match) parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
     }
     
-    // Inject RAG context
-    let finalMessage = message;
-    if (contextArgs?.ragContext) {
-        finalMessage = `Context from previous conversations/memories:\n${contextArgs.ragContext}\n\nUser Input: ${message}`;
-    }
-
     const timeStr = currentTimeString || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    parts.push({ text: finalMessage + `\n\n[System Note: Current Local Time is ${timeStr}]` });
+    parts.push({ text: message + `\n\n[System Note: Current Local Time is ${timeStr}]` });
 
     let currentParts = parts;
     let accumulatedText = "";
@@ -388,6 +357,19 @@ export class GeminiService {
         } else break;
     }
     return { text: accumulatedText, thought: accumulatedThought.trim() };
+  }
+
+  async countTokens(text: string): Promise<number> {
+    try {
+        const response = await this.ai.models.countTokens({
+            model: 'gemini-1.5-flash',
+            contents: [ { role: 'user', parts: [ { text } ] } ] 
+        });
+        return response.totalTokens || 0;
+    } catch (e) {
+        console.warn("Count tokens failed", e);
+        return 0;
+    }
   }
 }
 

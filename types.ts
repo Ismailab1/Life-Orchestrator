@@ -75,8 +75,9 @@ export interface ChatMessage {
   media?: string;
   isThinking?: boolean;
   proposal?: OrchestrationProposal;
-  contactProposal?: Person;
+  contactProposals?: Person[];
   thought?: string;
+  isAction?: boolean; // True if this message represents a system action (e.g. "Added task")
 }
 
 export type ChatHistory = Record<string, ChatMessage[]>;

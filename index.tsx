@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './index.css';
 import { LandingPage } from './components/LandingPage';
 import { LegalView } from './components/LegalView';
 

@@ -5,7 +5,7 @@ import { LifeInventory, RelationshipLedger } from "./types";
  * GOOGLE_CLIENT_ID is pre-configured for this specific deployment.
  * The client_id is sourced from the provided Google Cloud Project.
  */
-export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '662200881058-pk82bi3haj36hb1qreqjjd0f116bnrf5.apps.googleusercontent.com';
+export const GOOGLE_CLIENT_ID = '662200881058-pk82bi3haj36hb1qreqjjd0f116bnrf5.apps.googleusercontent.com';
 
 export const SYSTEM_INSTRUCTION = `
 ## Role: Holistic Life Orchestrator (Executive Logic Engine)

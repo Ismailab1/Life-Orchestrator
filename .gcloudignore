@@ -1,0 +1,15 @@
+.git
+.gitignore
+node_modules
+dist
+dist-ssr
+*.log
+.vscode
+.idea
+
+README.md
+!nginx.conf
+!.env
+!.env.local
+
+ai_studio_demo/

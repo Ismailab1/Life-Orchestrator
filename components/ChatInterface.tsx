@@ -2,6 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ChatMessage, Person, Task, OrchestrationProposal, StorageStats } from '../types';
+import { geminiService } from '../services/geminiService';
 import { OrchestrationProposalView } from './OrchestrationProposal';
 import { ContactProposalView } from './ContactProposal';
 import { CalendarPopover } from './CalendarPopover';
@@ -39,6 +40,7 @@ export const ChatInterface: React.FC<Props> = ({
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [thinkingText, setThinkingText] = useState("Processing...");
   const [showCalendar, setShowCalendar] = useState(false);
+  const [tokenCount, setTokenCount] = useState(0);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,6 +64,15 @@ export const ChatInterface: React.FC<Props> = ({
     }, 1800);
     return () => clearInterval(interval);
   }, [isLoading]);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+        if (!input.trim()) { setTokenCount(0); return; }
+        const count = await geminiService.countTokens(input);
+        setTokenCount(count);
+    }, 500); // 500ms debounce
+    return () => clearTimeout(timer);
+  }, [input]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -160,7 +171,13 @@ export const ChatInterface: React.FC<Props> = ({
                   </div>
                 )}
                 {msg.text && (
-                  <div className={`group relative max-w-[85%] rounded-2xl p-4 shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'}`}>
+                  <div className={`group relative max-w-[85%] rounded-2xl p-4 shadow-sm ${
+                      msg.isAction 
+                        ? 'bg-slate-100 border border-slate-200 text-slate-600 italic' 
+                        : msg.role === 'user' 
+                            ? 'bg-indigo-600 text-white rounded-br-none' 
+                            : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'
+                  }`}>
                     {/* Delete Message Button */}
                     <button 
                         onClick={() => onDeleteMessage(msg.id)}
@@ -171,7 +188,16 @@ export const ChatInterface: React.FC<Props> = ({
                     </button>
 
                     {msg.media && <div className="mb-2">{renderMediaPreview(msg.media)}</div>}
-                    <div className={`prose prose-sm max-w-none ${msg.role === 'user' ? 'prose-invert text-white' : 'text-slate-800'}`}>
+                    
+                    {/* Action Badge if applicable */}
+                    {msg.isAction && (
+                        <div className="flex items-center gap-2 mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400 not-italic">
+                            <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                            System Action
+                        </div>
+                    )}
+
+                    <div className={`prose prose-sm max-w-none ${msg.role === 'user' && !msg.isAction ? 'prose-invert text-white' : 'text-slate-800'}`}>
                       <ReactMarkdown>{msg.text}</ReactMarkdown>
                     </div>
                     <div className={`text-[8px] mt-2 font-bold tracking-widest opacity-40 uppercase ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
@@ -180,7 +206,9 @@ export const ChatInterface: React.FC<Props> = ({
                   </div>
                 )}
                 {msg.proposal && <div className="w-full max-w-2xl mt-4"><OrchestrationProposalView proposal={msg.proposal} onAccept={() => onAcceptProposal(msg.proposal!)} onReject={() => onRejectProposal(msg.proposal!)} /></div>}
-                {msg.contactProposal && <div className="mt-4"><ContactProposalView person={msg.contactProposal} onAccept={() => onAcceptContact(msg.contactProposal!)} onReject={() => onRejectContact(msg.contactProposal!)} /></div>}
+                {msg.contactProposals && msg.contactProposals.map((p, i) => (
+                    <div className="mt-4" key={i}><ContactProposalView person={p} onAccept={() => onAcceptContact(p)} onReject={() => onRejectContact(p)} /></div>
+                ))}
               </div>
             ))}
           </div>
@@ -208,6 +236,11 @@ export const ChatInterface: React.FC<Props> = ({
                 </button>
             </div>
         )}
+        <div className="flex justify-end mb-1">
+             <span className={`text-[10px] font-bold uppercase tracking-wider ${tokenCount > 1000 ? 'text-orange-500' : 'text-slate-300'}`}>
+                {tokenCount > 0 ? `${tokenCount} Tokens` : ''}
+             </span>
+        </div>
         <form onSubmit={handleSubmit} className="flex items-end gap-3">
           <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Attach context">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
