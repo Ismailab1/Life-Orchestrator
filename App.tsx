@@ -68,29 +68,27 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       messagesByDate: {}
   });
 
-  const [ledger, setLedger] = useState<RelationshipLedger>(() => {
-    if (mode === 'live') {
-      const saved = localStorage.getItem('life_ledger');
-      return saved ? JSON.parse(saved) : EMPTY_LEDGER;
-    }
-    return INITIAL_LEDGER;
-  });
+  // Determine initial state based on tutorial completion
+  const isFirstRun = !localStorage.getItem('life_tutorial_completed');
 
   const calendarService = useMemo(() => new GoogleCalendarService(GOOGLE_CLIENT_ID), []);
   
   const [inventory, setInventory] = useState<LifeInventory>(() => {
-    if (mode === 'live') {
-      const saved = localStorage.getItem('life_inventory');
-      return saved ? JSON.parse(saved) : EMPTY_INVENTORY;
-    }
+    const saved = localStorage.getItem('life_inventory');
+    if (saved) return JSON.parse(saved);
     
     if (mode === 'demo') {
-        const todayStr = toDateString(new Date());
+        const todayDate = new Date();
+        const todayStr = toDateString(todayDate);
         const yesterdayDate = new Date(); yesterdayDate.setDate(yesterdayDate.getDate() - 1);
         const yStr = toDateString(yesterdayDate);
         const tomorrowDate = new Date(); tomorrowDate.setDate(tomorrowDate.getDate() + 1);
         const tStr = toDateString(tomorrowDate);
         
+        // If explicitly demo mode AND not first run (or we want demo data), return demo data.
+        // But per user request: "on first setup... clean slate".
+        if (isFirstRun) return EMPTY_INVENTORY;
+
         return {
             fixed: [
                 { id: 'hist_1', title: 'Strategy Review w/ Board', type: 'fixed', time: '11:00 AM', duration: '2h', priority: 'high', category: 'Career', date: yStr },
@@ -105,7 +103,14 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
             ]
         };
     }
-    return INITIAL_INVENTORY;
+    return EMPTY_INVENTORY;
+  });
+
+  const [ledger, setLedger] = useState<RelationshipLedger>(() => {
+    const saved = localStorage.getItem('life_ledger');
+    if (saved) return JSON.parse(saved);
+    if (isFirstRun) return EMPTY_LEDGER;
+    return mode === 'demo' ? INITIAL_LEDGER : EMPTY_LEDGER;
   });
 
   const [memories, setMemories] = useState<Memory[]>(() => {
@@ -114,33 +119,18 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   });
 
   const [allMessages, setAllMessages] = useState<ChatHistory>(() => {
+      // Load history
+      const saved = localStorage.getItem('life_messages');
+      let history: ChatHistory = saved ? JSON.parse(saved) : {};
+      
+      // If live mode, check inactivity - logic placeholder for now
       if (mode === 'live') {
-          const saved = localStorage.getItem('life_messages');
-          let history: ChatHistory = saved ? JSON.parse(saved) : {};
-          
           const now = Date.now();
           const lastActive = parseInt(localStorage.getItem('life_last_active') || '0');
-          const inactivityPeriod = now - lastActive;
-          const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-          const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-
-          if (lastActive > 0 && inactivityPeriod > SEVEN_DAYS_MS) {
-              history = {};
-          }
-
-          const cutoffDate = new Date(now - FOURTEEN_DAYS_MS);
-          const filteredHistory: ChatHistory = {};
-          Object.entries(history).forEach(([dateStr, msgs]) => {
-              if (new Date(dateStr) >= cutoffDate) {
-                  filteredHistory[dateStr] = msgs;
-              }
-          });
-          history = filteredHistory;
-
-          return history;
+          // e.g. if (now - lastActive > 6 * 3600 * 1000) ...
       }
       
-      if (mode === 'demo') {
+      if (mode === 'demo' && !saved) {
           const today = new Date();
           const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
           const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -178,25 +168,31 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
               ]
           };
       }
-      return {};
+      return history;
   });
 
   useEffect(() => {
-    localStorage.setItem('life_last_active', Date.now().toString());
-  }, [allMessages, ledger, inventory]);
-
-  useEffect(() => { 
-    if (mode === 'live') {
-        localStorage.setItem('life_ledger', JSON.stringify(ledger)); 
-        localStorage.setItem('life_inventory', JSON.stringify(inventory)); 
-        localStorage.setItem('life_messages', JSON.stringify(allMessages));
-    }
-    localStorage.setItem('life_memories', JSON.stringify(memories));
-    
-    // safe update of stats
-    storageService.getStats().then(stats => setStorageStats(stats)).catch(e => console.error("Stats error", e));
+         localStorage.setItem('life_ledger', JSON.stringify(ledger)); 
+         localStorage.setItem('life_inventory', JSON.stringify(inventory)); 
+         localStorage.setItem('life_messages', JSON.stringify(allMessages));
+         localStorage.setItem('life_memories', JSON.stringify(memories));
+         localStorage.setItem('life_last_active', Date.now().toString()); // update active time
+         
+        // safe update of stats
+        storageService.getStats().then(stats => setStorageStats(stats)).catch(e => console.error("Stats error", e));
 
   }, [ledger, inventory, memories, allMessages, mode]);
+  
+  // Clean up any potential hydration mismatches
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const getModeTime = () => mode === 'demo' ? "9:00 AM" : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  const updateCurrentDayMessages = (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
+      const key = toDateString(currentDate);
+      setAllMessages(prev => ({ ...prev, [key]: updater(prev[key] || []) }));
+  };
 
   const ledgerRef = useRef<RelationshipLedger>(ledger);
   useEffect(() => { ledgerRef.current = ledger; }, [ledger]);
@@ -204,24 +200,18 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   useEffect(() => { inventoryRef.current = inventory; }, [inventory]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(() => !localStorage.getItem('life_tutorial_completed'));
   const pendingProposalRef = useRef<OrchestrationProposal | null>(null);
   const pendingContactRef = useRef<Person | null>(null);
   const initializedDateRef = useRef<string>('');
+  const justCompletedTutorialRef = useRef(false);
 
   const dailyInventory = useMemo(() => getTasksForDate(inventory, toDateString(currentDate)), [inventory, currentDate]);
   const messages = useMemo(() => allMessages[toDateString(currentDate)] || [], [allMessages, currentDate]);
 
-  const getModeTime = () => mode === 'demo' ? "9:00 AM" : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-
   const handleDateChange = (date: Date) => setCurrentDate(date);
 
-  const updateCurrentDayMessages = (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
-      const key = toDateString(currentDate);
-      setAllMessages(prev => ({ ...prev, [key]: updater(prev[key] || []) }));
-  };
-
-  const handleSendMessage = async (text: string, media: string | null) => {
+  const handleSendMessage = async (text: string, media: string | null, isHidden: boolean = false) => {
     const currentDayMessages = messages;
     const imagesToday = currentDayMessages.filter(m => !!m.media).length;
 
@@ -234,7 +224,9 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     const userMsgId = Math.random().toString(36).substr(2, 9);
     const modelMsgId = Math.random().toString(36).substr(2, 9);
 
-    updateCurrentDayMessages(prev => [...prev, { id: userMsgId, role: 'user', text, timestamp: new Date().toISOString(), media: compressedMedia || undefined }]);
+    if (!isHidden) {
+        updateCurrentDayMessages(prev => [...prev, { id: userMsgId, role: 'user', text, timestamp: new Date().toISOString(), media: compressedMedia || undefined }]);
+    }
     updateCurrentDayMessages(prev => [...prev, { id: modelMsgId, role: 'model', text: '', thought: '', timestamp: new Date().toISOString() }]);
     
     setIsLoading(true);
@@ -256,7 +248,10 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
           pendingProposalRef.current = null; pendingContactRef.current = null;
           return newArr;
       });
-    } catch (error) { console.error(error); } finally { setIsLoading(false); }
+    } catch (error: any) { 
+        console.error("SendMessage Error:", error);
+        alert(`Failed to send message: ${error.message || "Unknown error"}`);
+    } finally { setIsLoading(false); }
   };
 
   const handleDeleteMessage = (msgId: string) => {
@@ -275,8 +270,12 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       });
   };
 
-  const handleClearAllHistory = () => {
-      setAllMessages({});
+  const handleClearAllHistory = async () => {
+      if (confirm("Are you sure? This will wipe ALL data, including the inventory, ledger, memories, and chat history. The app will reset to a fresh install state.")) {
+          await storageService.clearAll();
+          localStorage.clear();
+          window.location.reload();
+      }
   };
 
   const executors = {
@@ -304,7 +303,11 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     },
     addTask: async (task: Omit<Task, 'id'>) => {
         const isRecurring = !!task.recurrence;
-        const newTask: Task = { ...task, id: Math.random().toString(36).substr(2, 9), date: isRecurring ? undefined : toDateString(currentDate) };
+        const newTask: Task = { 
+            ...task, 
+            id: Math.random().toString(36).substr(2, 9), 
+            date: isRecurring ? undefined : (task.date || toDateString(currentDate)) 
+        };
         setInventory(prev => {
             const listKey = newTask.type === 'fixed' ? 'fixed' : 'flexible';
             return { ...prev, [listKey]: [...prev[listKey], newTask] };
@@ -361,14 +364,59 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     saveMemory: async (content: string, type: 'preference' | 'decision' | 'fact') => {
         setMemories(prev => [ ...prev, { id: Math.random().toString(36).substr(2, 9), content, type, date: new Date().toLocaleDateString() } ]);
         return `Saved to memory: "${content}"`;
+    },
+    moveTasks: async (taskIdentifiers: string[], targetDate: string) => {
+        const normalize = (s: string) => s.toLowerCase().trim();
+        const targets = taskIdentifiers.map(normalize);
+        const currentInv = inventoryRef.current;
+        let movedCount = 0;
+        const movedNames: string[] = [];
+
+        const updateTask = (t: Task) => {
+            const normTitle = normalize(t.title);
+            const match = targets.find(target => normTitle === target || normTitle.includes(target));
+            if (match) {
+                movedCount++;
+                movedNames.push(t.title);
+                return { ...t, date: targetDate };
+            }
+            return t;
+        };
+
+        const newFixed = currentInv.fixed.map(updateTask);
+        const newFlexible = currentInv.flexible.map(updateTask);
+
+        if (movedCount > 0) {
+            setInventory({ fixed: newFixed, flexible: newFlexible });
+            return `Moved ${movedCount} tasks to ${targetDate}: ${movedNames.join(', ')}.`;
+        }
+        return "No tasks found to move.";
     }
   };
 
   useEffect(() => {
     const dateKey = toDateString(currentDate);
     if (initializedDateRef.current === dateKey) return;
+    
+    // Don't auto-brief if tutorial is showing or if we already have messages
+    if (showTutorial) return;
+    
+    // Safety check: if we JUST finished the tutorial, we likely triggered an intro message.
+    // We should skip the daily briefing in this specific race condition.
+    if (justCompletedTutorialRef.current) {
+        // Reset the ref so next page load works fine
+        justCompletedTutorialRef.current = false;
+        initializedDateRef.current = dateKey; // Mark as "handled" so it doesn't try again
+        return;
+    }
+
+    if (allMessages[dateKey] && allMessages[dateKey].length > 0) {
+        initializedDateRef.current = dateKey;
+        return;
+    }
+
     initializedDateRef.current = dateKey;
-    if (allMessages[dateKey] && allMessages[dateKey].length > 0) return;
+    
     const yesterday = new Date(currentDate); yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = toDateString(yesterday);
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -404,7 +452,7 @@ ${memoryContext}`);
       } catch (error) { console.error(error); } finally { setIsLoading(false); }
     };
     startBriefing();
-  }, [currentDate]);
+  }, [currentDate, showTutorial]);
 
   const handleUpdateTask = (task: Task) => setInventory(prev => {
       const fixed = prev.fixed.filter(t => t.id !== task.id);
@@ -510,9 +558,21 @@ ${memoryContext}`);
     if (tasks.length > 0) handleSendMessage(`I've just imported ${tasks.length} specific events from my Google Calendar. Please analyze these anchors and re-orchestrate if there are better ways to flow my days.`, null);
   };
 
+  const handleTutorialComplete = () => {
+      setShowTutorial(false);
+      localStorage.setItem('life_tutorial_completed', 'true');
+      justCompletedTutorialRef.current = true; // Mark as just completed to block briefing
+      handleSendMessage("[System Event: The user has just completed the onboarding tutorial. Please introduce yourself as their Personal Life Orchestrator. Briefly explain your core capabilities (managing Tasks, Calendar, and Relationships) and ask them what they would like to focus on first.]", null, true);
+  };
+
+  const handleTutorialSkip = () => {
+      setShowTutorial(false);
+      localStorage.setItem('life_tutorial_completed', 'true');
+  };
+
   return (
     <div className="h-dvh w-full flex flex-col bg-slate-100 text-slate-800 font-sans overflow-hidden">
-      {showTutorial && <TutorialOverlay isDemo={mode === 'demo'} onComplete={() => setShowTutorial(false)} onSkip={() => setShowTutorial(false)} />}
+      {showTutorial && <TutorialOverlay isDemo={mode === 'demo'} onComplete={handleTutorialComplete} onSkip={handleTutorialSkip} />}
       {showImportModal && <CalendarImportModal initialDate={currentDate} onCancel={() => setShowImportModal(false)} onImport={handleImportSelected} fetchEvents={(start, end) => calendarService.listEvents(start, end)} />}
       {showStorageManager && <StorageManager stats={storageStats} onClose={() => setShowStorageManager(false)} onClearDate={handleClearDateHistory} onClearAllHistory={handleClearAllHistory} />}
 

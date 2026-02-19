@@ -27,3 +27,4 @@ dist-ssr
 client_secret_*.json
 
 ai_studio_demo/
+models.json

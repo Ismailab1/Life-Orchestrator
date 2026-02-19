@@ -12,7 +12,8 @@ Life Orchestrator acts as an autonomous Chief Operating Officer (COO) for your l
 ## Key Features
 - **Smart Orchestration**: Automatically proposes optimal schedules based on your tasks and constraints.
 - **Kinship Ledger**: Tracks relationship health and proactively suggests times to connect.
-- **Local-First Privacy**: All data is stored locally in your browser.
+- **Local-First Privacy**: All data is stored locally in your browser (IndexedDB + Storage).
+- **Data Sovereignty**: Includes a comprehensive "Factory Reset" to wipe all data including tutorial status.
 - **Storage Management**: Visualizes your local storage usage and content breakdown to stay within browser limits.
 - **Token Awareness**: Displays real-time token usage for transparency.
 
@@ -52,7 +53,7 @@ As the context window grows to accommodate years of memories, we are implementin
 - **Languages**: TypeScript, JavaScript, HTML5, CSS3
 - **Frameworks**: React 19
 - **Styling**: Tailwind CSS
-- **AI Platform**: Google Gemini 3 Flash Preview (via @google/genai SDK v1.38)
+- **AI Platform**: Google Gemini 2.5 Pro (via @google/generative-ai SDK)
 - **APIs**: Google Calendar API (GAPI/GSI)
 - **Cloud Platforms**: Google Cloud Platform (GCP)
 - **Deployment**: Google Cloud Run

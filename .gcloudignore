@@ -13,3 +13,4 @@ README.md
 !.env.local
 
 ai_studio_demo/
+models.json

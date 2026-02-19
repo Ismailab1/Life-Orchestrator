@@ -68,7 +68,9 @@ export const CalendarPopover: React.FC<Props> = ({ selectedDate, onSelectDate, t
 
       <div className="p-3">
         <div className="grid grid-cols-7 mb-2 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => <div key={d}>{d}</div>)}
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, index) => (
+            <div key={index} className="text-center">{d}</div>
+          ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
           {days.map((day, idx) => (
