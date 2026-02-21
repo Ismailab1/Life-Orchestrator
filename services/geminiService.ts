@@ -7,7 +7,7 @@ import {
   FunctionDeclaration,
   SchemaType
 } from "@google/generative-ai";
-import { SYSTEM_INSTRUCTION } from "../constants";
+import { SYSTEM_INSTRUCTION, REFLECTION_MODE_INSTRUCTION, ACTIVE_MODE_INSTRUCTION, PLANNING_MODE_INSTRUCTION } from "../constants";
 import { LifeInventory, RelationshipLedger, OrchestrationProposal, UpdateRelationshipArgs, Task } from "../types";
 
 // --- Tool Definitions (Adapted for @google/generative-ai) ---
@@ -177,6 +177,8 @@ export class GeminiService {
   private model: GenerativeModel;
   private chat: ChatSession | null = null;
   private tools: FunctionDeclaration[];
+  private currentTemporalMode: 'reflection' | 'active' | 'planning' = 'active';
+  private abortController: AbortController | null = null;
 
   constructor() {
     const apiKey = process.env.API_KEY || '';
@@ -201,6 +203,63 @@ export class GeminiService {
     this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-pro" }); 
   }
 
+  private detectTemporalMode(context: string): 'reflection' | 'active' | 'planning' {
+    // Parse the session context to extract temporal information
+    const isFutureDateMatch = context.match(/Is Future Date:\s*(true|false)/i);
+    const targetDateMatch = context.match(/Target Date:\s*([^\n]+)/i);
+    
+    if (isFutureDateMatch && isFutureDateMatch[1].toLowerCase() === 'true') {
+      return 'planning';
+    }
+    
+    if (targetDateMatch) {
+      try {
+        const targetDateStr = targetDateMatch[1].trim();
+        const targetDate = new Date(targetDateStr);
+        const today = new Date();
+        
+        // Normalize to date-only comparison (ignore time)
+        targetDate.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0);
+        
+        if (targetDate < today) {
+          return 'reflection';
+        } else if (targetDate > today) {
+          return 'planning';
+        }
+      } catch (e) {
+        console.warn('Failed to parse target date for temporal mode detection:', e);
+      }
+    }
+    
+    // Default to active mode if we can't determine
+    return 'active';
+  }
+
+  private getTemporalModeInstruction(mode: 'reflection' | 'active' | 'planning'): string {
+    switch (mode) {
+      case 'reflection':
+        return REFLECTION_MODE_INSTRUCTION;
+      case 'planning':
+        return PLANNING_MODE_INSTRUCTION;
+      case 'active':
+      default:
+        return ACTIVE_MODE_INSTRUCTION;
+    }
+  }
+
+  private getTemporalModeReminder(): string {
+    switch (this.currentTemporalMode) {
+      case 'reflection':
+        return '[REFLECTION MODE: This is a past date. Use past tense and focus on analysis.]';
+      case 'planning':
+        return '[PLANNING MODE: This is a future date. Use future tense and tentative language.]';
+      case 'active':
+      default:
+        return '[ACTIVE MODE: This is today. Use present tense and action-oriented language.]';
+    }
+  }
+
   startNewSession(initialTimeContext?: string) {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     let context = initialTimeContext || "";
@@ -222,9 +281,22 @@ User Timezone: ${timezone}`;
         context += `\nUser Timezone: ${timezone}`;
     }
 
+    // Abort any existing streams when starting new session (prevents memory leaks on date change)
+    if (this.abortController) {
+        this.abortController.abort();
+        console.log('[GeminiService] Aborted previous session stream');
+    }
+    this.abortController = new AbortController();
+
+    // Detect temporal mode and inject appropriate instructions
+    this.currentTemporalMode = this.detectTemporalMode(context);
+    const temporalInstruction = this.getTemporalModeInstruction(this.currentTemporalMode);
+    
+    console.log(`[Temporal Mode Detection] Mode: ${this.currentTemporalMode.toUpperCase()}`);
+
     // Initialize model HERE with the dynamic system instruction. 
     // Passing systemInstruction to getGenerativeModel allows the SDK to format it correctly as Content.
-    const finalSystemInstruction = SYSTEM_INSTRUCTION + "\n\n" + context;
+    const finalSystemInstruction = SYSTEM_INSTRUCTION + temporalInstruction + "\n\n" + context;
     console.log("Initializing Gemini Session with System Instruction:", finalSystemInstruction);
     
     this.model = this.genAI.getGenerativeModel({
@@ -274,7 +346,8 @@ User Timezone: ${timezone}`;
     }
     
     const timeStr = currentTimeString || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    parts.push(message + `\n\n[System Note: Current Local Time is ${timeStr}]`);
+    const modeReminder = this.getTemporalModeReminder();
+    parts.push(message + `\n\n[System Note: Current Local Time is ${timeStr}. ${modeReminder}]`);
 
     let accumulatedText = "";
     let accumulatedThought = "";
@@ -370,7 +443,8 @@ User Timezone: ${timezone}`;
     }
     
     const timeStr = currentTimeString || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-    parts.push(message + `\n\n[System Note: Current Local Time is ${timeStr}]`);
+    const modeReminder = this.getTemporalModeReminder();
+    parts.push(message + `\n\n[System Note: Current Local Time is ${timeStr}. ${modeReminder}]`);
 
     let accumulatedThought = "";
     
