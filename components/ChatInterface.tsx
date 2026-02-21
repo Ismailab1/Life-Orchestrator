@@ -15,6 +15,7 @@ interface Props {
   onSendMessage: (text: string, media: string | null) => void;
   onDeleteMessage: (id: string) => void;
   isLoading: boolean;
+  isStreaming: boolean;
   onAcceptProposal: (proposal: OrchestrationProposal) => void;
   onRejectProposal: (proposal: OrchestrationProposal) => void;
   onAcceptContact: (person: Person) => void;
@@ -29,7 +30,8 @@ export const ChatInterface: React.FC<Props> = ({
     onSelectDate,
     onSendMessage, 
     onDeleteMessage,
-    isLoading, 
+    isLoading,
+    isStreaming,
     onAcceptProposal, 
     onRejectProposal,
     onAcceptContact,
@@ -95,7 +97,7 @@ export const ChatInterface: React.FC<Props> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!input.trim() && !selectedMedia) || isLoading) return;
+    if ((!input.trim() && !selectedMedia) || isStreaming) return;
     onSendMessage(input, selectedMedia);
     setInput('');
     setSelectedMedia(null);
@@ -236,8 +238,18 @@ export const ChatInterface: React.FC<Props> = ({
                 </button>
             </div>
         )}
-        <div className="flex justify-end mb-1">
-             <span className={`text-[10px] font-bold uppercase tracking-wider ${tokenCount > 1000 ? 'text-orange-500' : 'text-slate-300'}`}>
+        <div className="flex justify-between items-center mb-1">
+             {isStreaming && (
+               <div className="flex items-center gap-2">
+                 <div className="flex gap-1">
+                   <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                   <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                   <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                 </div>
+                 <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">AI Streaming...</span>
+               </div>
+             )}
+             <span className={`text-[10px] font-bold uppercase tracking-wider ${tokenCount > 1000 ? 'text-orange-500' : 'text-slate-300'} ${isStreaming ? 'ml-auto' : ''}`}>
                 {tokenCount > 0 ? `${tokenCount} Tokens` : ''}
              </span>
         </div>
@@ -249,12 +261,12 @@ export const ChatInterface: React.FC<Props> = ({
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isStorageCritical ? "STORAGE FULL - DELETE OLD CHATS" : "Type your goals..."}
-            disabled={isStorageCritical}
-            className={`flex-1 max-h-32 min-h-[48px] p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:outline-none resize-none text-sm transition-colors ${isStorageCritical ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}
+            placeholder={isStreaming ? "AI is responding..." : isStorageCritical ? "STORAGE FULL - DELETE OLD CHATS" : "Type your goals..."}
+            disabled={isStorageCritical || isStreaming}
+            className={`flex-1 max-h-32 min-h-[48px] p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:outline-none resize-none text-sm transition-colors ${isStorageCritical ? 'bg-red-50 border-red-200' : isStreaming ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-200'}`}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); } }}
           />
-          <button type="submit" disabled={isLoading || isStorageCritical || (!input.trim() && !selectedMedia)} className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md">
+          <button type="submit" disabled={isStreaming || isStorageCritical || (!input.trim() && !selectedMedia)} className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
           </button>
         </form>

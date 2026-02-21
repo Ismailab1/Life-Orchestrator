@@ -359,6 +359,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   useEffect(() => { inventoryRef.current = inventory; }, [inventory]);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [showTutorial, setShowTutorial] = useState(() => !localStorage.getItem('life_tutorial_completed'));
   const pendingProposalRef = useRef<OrchestrationProposal | null>(null);
   const pendingContactRef = useRef<Person | null>(null);
@@ -389,6 +390,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     updateCurrentDayMessages(prev => [...prev, { id: modelMsgId, role: 'model', text: '', thought: '', timestamp: new Date().toISOString() }]);
     
     setIsLoading(true);
+    setIsStreaming(true);
     try {
       await geminiService.sendMessageStream(text, compressedMedia, executors, (streamText, streamThought) => {
           updateCurrentDayMessages(prev => {
@@ -410,7 +412,10 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     } catch (error: any) { 
         console.error("SendMessage Error:", error);
         alert(`Failed to send message: ${error.message || "Unknown error"}`);
-    } finally { setIsLoading(false); }
+    } finally { 
+        setIsLoading(false);
+        setIsStreaming(false);
+    }
   };
 
   const handleDeleteMessage = (msgId: string) => {
@@ -654,6 +659,7 @@ ${memoryContext}`);
       const modelId = Math.random().toString(36).substr(2, 9);
       updateCurrentDayMessages(() => [{ id: modelId, role: 'model', text: '', thought: '', timestamp }]);
       setIsLoading(true);
+      setIsStreaming(true);
       try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -681,7 +687,10 @@ ${memoryContext}`);
             });
             if (text || thought) setIsLoading(false);
         }, getModeTime());
-      } catch (error) { console.error(error); } finally { setIsLoading(false); }
+      } catch (error) { console.error(error); } finally { 
+        setIsLoading(false);
+        setIsStreaming(false);
+      }
     };
     startBriefing();
   }, [currentDate, showTutorial]);
@@ -893,7 +902,8 @@ ${memoryContext}`);
                 onSelectDate={handleDateChange} 
                 onSendMessage={handleSendMessage} 
                 onDeleteMessage={handleDeleteMessage}
-                isLoading={isLoading} 
+                isLoading={isLoading}
+                isStreaming={isStreaming}
                 onAcceptProposal={acceptProposal} 
                 onRejectProposal={() => {}} 
                 onAcceptContact={acceptContact} 
