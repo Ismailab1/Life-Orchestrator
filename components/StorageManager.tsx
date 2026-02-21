@@ -75,7 +75,7 @@ export const StorageManager: React.FC<Props> = ({ stats, onClose, onClearDate, o
             <div className="flex items-center justify-between">
               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">History by Date</h3>
               <button 
-                onClick={() => { if(window.confirm("Are you sure you want to clear ALL chat messages? This cannot be undone.")) onClearAllHistory(); }}
+                onClick={onClearAllHistory}
                 className="text-[10px] font-bold text-red-600 hover:text-red-700 uppercase tracking-widest"
               >
                 Clear All History
@@ -92,7 +92,11 @@ export const StorageManager: React.FC<Props> = ({ stats, onClose, onClearDate, o
                       <p className="text-[10px] text-slate-400 font-mono">{storageService.formatBytes(size)}</p>
                     </div>
                     <button 
-                      onClick={() => onClearDate(date)}
+                      onClick={() => {
+                        if (window.confirm(`Clear all chat messages from ${new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}? This cannot be undone.`)) {
+                          onClearDate(date);
+                        }
+                      }}
                       className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                       title="Clear this day"
                     >

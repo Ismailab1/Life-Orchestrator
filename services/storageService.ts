@@ -10,7 +10,7 @@ export const storageService = {
     try {
         const totalQuota = 5 * 1024 * 1024; // 5MB localStorage soft limit
         
-        // Calculate actual localStorage usage
+        // Calculate actual localStorage usage for main data items
         const ledgerStr = localStorage.getItem('life_ledger') || '{}';
         const inventoryStr = localStorage.getItem('life_inventory') || '{"fixed":[],"flexible":[]}';
         const messagesStr = localStorage.getItem('life_messages') || '{}';
@@ -21,7 +21,15 @@ export const storageService = {
         const messagesSize = new Blob([messagesStr]).size;
         const memoriesSize = new Blob([memoriesStr]).size;
         
-        const totalUsed = ledgerSize + inventorySize + messagesSize + memoriesSize;
+        // Calculate total localStorage usage including all items (tutorial flags, tokens, etc.)
+        let totalUsed = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key) {
+                const value = localStorage.getItem(key) || '';
+                totalUsed += new Blob([key]).size + new Blob([value]).size;
+            }
+        }
         
         // Parse messages to get per-date breakdown
         const messages: ChatHistory = JSON.parse(messagesStr);

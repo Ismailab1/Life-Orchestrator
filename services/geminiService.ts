@@ -31,12 +31,12 @@ const getLifeContextTool: FunctionDeclaration = {
 
 const proposeOrchestrationTool: FunctionDeclaration = {
   name: 'propose_orchestration',
-  description: 'Submits a restructured day plan.',
+  description: 'Submits a restructured day plan. IMPORTANT: Calculate total duration before proposing. If >10 hours, recommend moving low-priority tasks to future days using move_tasks.',
   parameters: {
     type: SchemaType.OBJECT,
     properties: {
-      optimized_timeline: { type: SchemaType.STRING, description: 'The full hourly breakdown text.' },
-      reasoning: { type: SchemaType.STRING, description: 'Why these specific shifts were made.' },
+      optimized_timeline: { type: SchemaType.STRING, description: 'The full hourly breakdown text. Include warnings if schedule exceeds realistic capacity.' },
+      reasoning: { type: SchemaType.STRING, description: 'Why these specific shifts were made. If overloaded, explain which tasks could be moved to future days and why.' },
       schedule: {
         type: SchemaType.ARRAY,
         description: 'The complete list of tasks.',

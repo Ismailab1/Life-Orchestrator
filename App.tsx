@@ -242,60 +242,73 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
           return {
               // Monday - 3 days ago (REFLECTION)
               [day_m3_key]: [
-                  { id: 'm3_1', role: 'model', timestamp: createIso(day_m3, 8, 0), text: "📅 REFLECTION: Monday - Good morning! Starting the week strong. You have Team Standup at 9:30 AM and Sprint Planning at 2:00 PM. I've scheduled your gym session for 7:00 AM and code review after standup." },
-                  { id: 'm3_2', role: 'user', timestamp: createIso(day_m3, 15, 45), text: "Sprint planning went great! We're launching Phase 1 on Friday. Can you help me prepare?" },
-                  { id: 'm3_3', role: 'model', timestamp: createIso(day_m3, 15, 46), thought: "Major launch Friday. Need to block focus time and ensure family obligations are met before big push.", text: "Excellent news! I've noted Friday 9-12 PM for the launch. I'll make sure your family commitments are honored this week—Grandpa needs his call Tuesday, and Grandma has PT Thursday." }
+                  { id: 'm3_1', role: 'model', timestamp: createIso(day_m3, 8, 0), text: "📅 **REFLECTION MODE** - Analyzing 3 days ago:\n\nMonday had Team Standup (9:30 AM) and Sprint Planning (2 PM). How did those go? I also see 'Review Sprint Docs' was scheduled as a flexible task—did you complete that?" },
+                  { id: 'm3_2', role: 'user', timestamp: createIso(day_m3, 15, 45), text: "Sprint planning went great! We're launching Phase 1 on Friday. I got the docs reviewed but it took longer than expected—about 3 hours." },
+                  { id: 'm3_3', role: 'model', timestamp: createIso(day_m3, 15, 46), thought: "User mentions 3 hours for doc review (originally estimated 2h). Saving this as a preference for future estimation calibration. Major launch Friday means critical week ahead.", text: "Excellent news on the launch! I've saved your note about doc reviews taking ~3 hours—I'll estimate more accurately going forward.\n\n⚠️ **CAPACITY INSIGHT**: With Friday's launch, I'll make sure your family commitments are honored this week. Grandpa needs his call Tuesday (his Kinship Debt is at 2 days × Priority 1 = 2), and Grandma has PT Thursday." }
               ],
               
               // Tuesday - 2 days ago (REFLECTION)
               [day_m2_key]: [
-                  { id: 'm2_1', role: 'model', timestamp: createIso(day_m2, 8, 30), text: "📅 REFLECTION: Tuesday - Morning briefing: Call with Grandpa at 10:00 AM (he's best in mornings), Product Demo Rehearsal at 3:00 PM. I've slotted yoga at 12:30 PM to keep you sharp." },
-                  { id: 'm2_2', role: 'user', timestamp: createIso(day_m2, 10, 35), text: "Grandpa seemed a bit confused today, but overall okay. Need to check in more often." },
-                  { id: 'm2_3', role: 'model', timestamp: createIso(day_m2, 10, 36), thought: "Grandpa showing confusion symptoms. Updating ledger to 'Needs Attention' and will prioritize regular check-ins.", text: "I've updated Grandpa's status. I'll remind you to call him every 2-3 days during morning windows. Your care for him is crucial." },
+                  { id: 'm2_1', role: 'model', timestamp: createIso(day_m2, 8, 30), text: "📅 **REFLECTION MODE** - Looking back at 2 days ago:\n\nTuesday had: Check-in call with Grandpa (10 AM), Product Demo Rehearsal (3 PM), and Yoga (12:30 PM).\n\n**Relationship Verification**: Did you connect with Grandpa as planned? How did the call go?" },
+                  { id: 'm2_2', role: 'user', timestamp: createIso(day_m2, 10, 35), text: "Yes, called Grandpa around 10:15 AM. He seemed a bit confused today, but overall okay. Need to check in more often." },
+                  { id: 'm2_3', role: 'model', timestamp: createIso(day_m2, 10, 36), thought: "Grandpa showing confusion symptoms. Updating ledger with Tuesday contact date and status to 'Needs Attention'. Will prioritize regular morning check-ins every 2-3 days.", text: "✅ I've updated Grandpa's ledger to reflect Tuesday's contact and changed his status to 'Needs Attention' based on the confusion.\n\n**MEMORY SAVED**: You prefer morning calls with Grandpa (before confusion sets in). I'll recommend check-ins every 2-3 days during 9-11 AM windows.\n\nHow did the demo rehearsal go?" },
                   { id: 'm2_4', role: 'user', timestamp: createIso(day_m2, 16, 20), text: "Demo rehearsal was solid. Feeling prepared for Friday! 💪" },
-                  { id: 'm2_5', role: 'model', timestamp: createIso(day_m2, 16, 21), text: "That's the energy we need! Three more days to the launch. Tomorrow you have a Strategy Review with the board—I'll make sure you're ready." }
+                  { id: 'm2_5', role: 'model', timestamp: createIso(day_m2, 16, 21), text: "Perfect momentum! Two days to launch. Tomorrow's Strategy Review with the board will be your final validation point." }
               ],
               
               // Wednesday - Yesterday (REFLECTION)
               [day_m1_key]: [
-                  { id: 'm1_1', role: 'model', timestamp: createIso(day_m1, 8, 30), text: "📅 REFLECTION: Yesterday - Big day ahead. Strategy Review at 11:00 AM and Dinner with Mom at 6:30 PM. I've moved your 5k run to 4:00 PM to decompress between work and family time." },
+                  { id: 'm1_1', role: 'model', timestamp: createIso(day_m1, 8, 30), text: "📅 **REFLECTION MODE** - Yesterday's activities:\n\nStrategy Review (11 AM), Dinner with Mom & Grandma (6:30 PM), and 5K Run (4 PM).\n\n**Relationship Check**: I see you had dinner scheduled with your mom. How did that go? Did Grandma join as planned?" },
                   { id: 'm1_2', role: 'user', timestamp: createIso(day_m1, 13, 15), text: "Board meeting went exceptionally well! They loved the roadmap. Feeling pumped for Friday's launch." },
-                  { id: 'm1_3', role: 'model', timestamp: createIso(day_m1, 13, 16), thought: "User is on a roll. High confidence going into launch. Maintaining work-life balance will be key.", text: "Outstanding! This momentum is exactly what you need. Make sure to enjoy tonight's dinner with your mom—celebrate these wins with the people who matter." },
-                  { id: 'm1_4', role: 'user', timestamp: createIso(day_m1, 18, 45), text: "Dinner with Mom was great! She seems much more energetic today.", media: 'https://picsum.photos/id/1062/400/300' },
-                  { id: 'm1_5', role: 'model', timestamp: createIso(day_m1, 18, 46), thought: "Analyzing photo... Grandma looks mobile. Updating ledger status to Stable.", text: "That's wonderful to hear! She looks great in the photo. I've updated Grandma's status to 'Stable'. Tomorrow's PT session at 10 AM will keep her on track." },
-                  { id: 'm1_6', role: 'user', timestamp: createIso(day_m1, 21, 0), text: "Quick reminder: I have that Capital One interview tomorrow at 2 PM. Want to make sure I'm prepped." },
-                  { id: 'm1_7', role: 'model', timestamp: createIso(day_m1, 21, 1), thought: "Interview tomorrow! Already on schedule but user wants reassurance and prep time.", text: "Already on it! You have 1.5 hours blocked for interview prep tonight. I'll keep your morning clear after Grandma's PT so you can review notes. You're going to crush it." }
+                  { id: 'm1_3', role: 'model', timestamp: createIso(day_m1, 13, 16), thought: "User is on a roll. High confidence going into launch. Maintaining work-life balance will be key.", text: "Outstanding! This momentum is exactly what you need. Make sure to enjoy tonight's dinner—celebrate these wins with the people who matter.\n\n**Reminder**: Your mom and Grandma are expecting you at 6:30 PM. This will reset both their Kinship Debt scores." },
+                  { id: 'm1_4', role: 'user', timestamp: createIso(day_m1, 18, 45), text: "Dinner was amazing! Mom was so proud, and Grandma was surprisingly mobile—walking with minimal support. Here's a photo!", media: 'https://picsum.photos/id/1062/400/300' },
+                  { id: 'm1_5', role: 'model', timestamp: createIso(day_m1, 18, 46), thought: "Excellent progress for Grandma's recovery. Analyzing photo—she looks stable and mobile. Updating both contacts' ledgers with Wednesday's interaction.", text: "✅ That's wonderful! I've updated both Mom and Grandma's ledgers to reflect yesterday's dinner.\n\n**Status Update**: Grandma → 'Stable' (great mobility progress!)\n\nYou mentioned she had PT tomorrow at 10 AM. That session should keep her recovery on track." },
+                  { id: 'm1_6', role: 'user', timestamp: createIso(day_m1, 21, 0), text: "Btw, I really prefer doing interview prep in the evening when I'm more relaxed. Morning prep makes me too anxious." },
+                  { id: 'm1_7', role: 'model', timestamp: createIso(day_m1, 21, 1), thought: "Important preference: evening prep for interviews reduces anxiety. Saving this to memory bank.", text: "**MEMORY SAVED**: You prefer evening interview prep (more relaxed vs. morning anxiety).\n\nI'll schedule 90 minutes tonight (9-10:30 PM) for reviewing Capital One materials. Tomorrow morning after Grandma's PT will stay clear so you can decompress before the 2 PM interview.\n\n🎯 You're going to crush it!" }
               ],
               
               // Thursday - Today (ACTIVE)
               [day_0_key]: [
-                  { id: 'm0_1', role: 'model', timestamp: createIso(day_0, 8, 15), text: "📍 TODAY: Morning! Big day—Grandma's PT at 10:00 AM and Capital One Interview at 2:00 PM. I suggest Python practice right after lunch to warm up your technical thinking before the interview." },
-                  { id: 'm0_2', role: 'user', timestamp: createIso(day_0, 9, 30), text: "The interview got moved to 3:30 PM. Can you re-orchestrate?" },
-                  { id: 'm0_3', role: 'model', timestamp: createIso(day_0, 9, 31), thought: "Interview time shifted. Need to optimize the flow—move gym earlier to capitalize on new gap and ensure user doesn't skip health goals.", text: "No problem! I've shifted things around. Here's the new flow:", proposal: {
-                      optimized_timeline: "10:00 AM - Grandma PT\n12:00 PM - Lunch & Quick Break\n1:00 PM - Gym (Moved Up)\n2:30 PM - Python Practice (Interview Warm-up)\n3:30 PM - Capital One Interview",
-                      reasoning: "Moving the gym session earlier takes advantage of the new gap before your interview. This ensures you don't skip your health goals and gives you a focused Python session right before the interview to get your mind in technical mode. The gym session will also reduce any nervous energy.",
+                  { id: 'm0_1', role: 'model', timestamp: createIso(day_0, 8, 15), text: "📍 **ACTIVE MODE** - Today's Schedule Analysis:\n\n**Fixed Anchors:**\n• 9:00 AM - Team Standup (30m)\n• 10:00 AM - Grandma's PT (1h)\n• 12:30 PM - Lunch Meeting with Product Team (1h)\n• 2:00 PM - Capital One Interview (1h)\n\n**Flexible Tasks:**\n• Python Practice (2h, HIGH priority)\n• Gym/Cardio (1h)\n• Check-in with Sarah (30m, HIGH)\n• Sprint Docs Review (2h)\n• Portfolio Update (1.5h, LOW)\n• Desk Organization (1h, LOW)\n• Meal Prep (1.5h, LOW)\n\n⚠️ **OVERLOAD ALERT**: Total = 13 hours of work. This exceeds realistic capacity (8-10h).\n\n🚨 **CRITICAL RELATIONSHIP**: Sarah has Kinship Debt of 12 (Priority 2 × 6 days). She's in CRITICAL status and needs attention today.\n\n**Recommendation**: I can move low-priority tasks (Portfolio Update, Desk Org, Meal Prep) to tomorrow to bring today down to 8.5 hours. This keeps focus on your interview and Sarah.\n\nWould you like me to redistribute those tasks?" },
+                  { id: 'm0_2', role: 'user', timestamp: createIso(day_0, 8, 45), text: "Yes, please move those lower priority tasks. And about Sarah—I should definitely call her, but is she usually available today?" },
+                  { id: 'm0_3', role: 'model', timestamp: createIso(day_0, 8, 46), thought: "User confirms task redistribution. Asking about Sarah's availability before scheduling—good practice. Sarah is a mentor, likely available late afternoon/evening after work hours.", text: "✅ I've moved Portfolio Update, Desk Organization, and Meal Prep to Friday (post-launch recovery day).\n\n**Today's revised capacity**: 8.5 hours ✓\n\n**Regarding Sarah**: As your career mentor, she's typically available late afternoon or early evening (4-6 PM). Given that your interview ends at 3 PM, would you like to schedule a check-in call with her around 4:30 PM? She'd probably love to hear how the interview went!" },
+                  { id: 'm0_4', role: 'user', timestamp: createIso(day_0, 9, 15), text: "Perfect! Yes, add Sarah at 4:30 PM. That way I can debrief the interview with her right away." },
+                  { id: 'm0_5', role: 'model', timestamp: createIso(day_0, 9, 16), thought: "Adding Sarah check-in at 4:30 PM. This will reset her Kinship Debt and provide valuable post-interview mentorship. User is being strategic about timing.", text: "✅ **Added**: Check-in call with Sarah at 4:30 PM (30m)\n\nThis is excellent timing—she can provide immediate feedback on your interview performance and potentially coach you on follow-up strategy with Jordan (your potential manager).\n\nHere's your optimized schedule:\n\n**9:00 AM** - Team Standup (30m)\n**10:00 AM** - Grandma's PT (1h)\n**12:30 PM** - Lunch Meeting (1h)\n**2:00 PM** - Capital One Interview (1h) 🎯\n**3:30 PM** - Python Practice (1h warm-up)\n**4:30 PM** - Call with Sarah (30m) 📞\n**5:30 PM** - Gym/Cardio (1h)\n**7:00 PM** - Sprint Docs Review (2h)\n\nYou're set up for success! 💪" },
+                  { id: 'm0_6', role: 'user', timestamp: createIso(day_0, 13, 45), text: "The interview just got moved to 3:30 PM instead of 2:00. Can you re-orchestrate?" },
+                  { id: 'm0_7', role: 'model', timestamp: createIso(day_0, 13, 46), thought: "Interview shifted 1.5 hours later. This creates a new gap from 2-3:30 PM. I can move Gym earlier to capitalize on this window while keeping Python practice right before interview for technical warm-up. Sarah call stays at 4:30 since interview now ends at 4:30.", text: "**EXECUTIVE PIVOT** - Interview time shifted.\n\nNo problem! Here's the optimized reflow:", proposal: {
+                      optimized_timeline: "9:00 AM - Team Standup\n10:00 AM - Grandma PT\n12:30 PM - Lunch Meeting\n2:00 PM - Gym/Cardio (Moved Up) ✓\n3:00 PM - Python Practice (30m Interview Warm-up)\n3:30 PM - Capital One Interview\n5:00 PM - Call with Sarah (Post-interview debrief)",
+                      reasoning: "Moving gym to the new 2:00 PM gap ensures you don't skip health goals. Python practice right before interview (3:00-3:30) gets your mind in technical mode. Sarah's call shifts to 5:00 PM so you can debrief the interview immediately. This also reduces nervous energy through exercise before your high-stakes interview.",
                       schedule: [
+                        { id: 'w4_s1', title: 'Team Standup', type: 'fixed', time: '9:00 AM', duration: '30m', priority: 'medium', category: 'Career' },
                         { id: 'w4_1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family' },
-                        { id: 'wf4_2', title: 'Gym / Cardio', type: 'fixed', time: '1:00 PM', duration: '1h', priority: 'medium', category: 'Health' },
-                        { id: 'wf4_1', title: 'Python Debugging Practice', type: 'fixed', time: '2:30 PM', duration: '1h', priority: 'medium', category: 'Career' },
-                        { id: 'w4_2', title: 'Interview with Capital One', type: 'fixed', time: '3:30 PM', duration: '1h', priority: 'high', category: 'Career' }
+                        { id: 'w4_s2', title: 'Lunch Meeting with Product Team', type: 'fixed', time: '12:30 PM', duration: '1h', priority: 'medium', category: 'Career' },
+                        { id: 'wf4_1', title: 'Gym / Cardio', type: 'fixed', time: '2:00 PM', duration: '1h', priority: 'medium', category: 'Health' },
+                        { id: 'wf4_2', title: 'Python Debugging Practice', type: 'fixed', time: '3:00 PM', duration: '30m', priority: 'high', category: 'Career' },
+                        { id: 'w4_2', title: 'Interview with Capital One', type: 'fixed', time: '3:30 PM', duration: '1h', priority: 'high', category: 'Career' },
+                        { id: 'wf4_3', title: 'Check-in call with Sarah', type: 'fixed', time: '5:00 PM', duration: '30m', priority: 'high', category: 'Family' }
                       ]
                   }}
               ],
               
               // Friday - Tomorrow (PLANNING)
               [day_p1_key]: [
-                  { id: 'p1_1', role: 'model', timestamp: createIso(day_p1, 7, 0), text: "🗓️ PLANNING: Tomorrow - Major launch day! I've blocked 9 AM-12 PM for Project Launch: Phase 1. This is the culmination of the week's prep. Team Retrospective at 4 PM will give you time to celebrate and decompress. Would you like me to adjust anything before tomorrow?" }
+                  { id: 'p1_1', role: 'model', timestamp: createIso(day_p1, 7, 0), text: "� **PLANNING MODE** - Launch Day Orchestration:\n\n**System Status Check:**\n• Mom: Last contact 2 days ago (Kinship Debt 2×2=4 ✓)\n• Alex: Last contact 4 days ago (Kinship Debt 1×4=4 ✓)\n• Jordan: Last contact 0 days (stable ✓)\n• Sarah: **Updated today** after your call (Kinship Debt reset to 0 ✓)\n• Grandma & Grandpa: Both stable ✓\n\n**Launch Task Queue:**\n• Portfolio Update (1.5h, moved from today)\n• Desk Organization (1h, moved from today)\n• Meal Prep (1.5h, moved from today)\n\n**Total Capacity**: 4 hours (recovery day by design)\n\nThis keeps tomorrow light so you have mental bandwidth for launch monitoring, celebration, or debugging. Would you like me to schedule these with buffer space for flexibility?" },
+                  { id: 'p1_2', role: 'user', timestamp: createIso(day_p1, 7, 30), text: "Yes, keep it light. Space things out so I can monitor the launch without stress." },
+                  { id: 'p1_3', role: 'model', timestamp: createIso(day_p1, 7, 31), thought: "User wants breathing room for launch monitoring. Proposing relaxed schedule with 2-3 hour gaps between tasks.", text: "✅ **Relaxed Launch Day Schedule**:\n\n**10:00 AM** - Portfolio Update (1.5h)\n*[Launch monitoring window]*\n**2:00 PM** - Desk Organization (1h)\n*[Flex time for celebration/debugging]*\n**5:00 PM** - Meal Prep (1.5h)\n\nThis gives you 2-3 hour windows between tasks to monitor metrics, respond to user feedback, or celebrate if things go smoothly! 🎉" }
               ],
               
               // Saturday - Day after tomorrow (PLANNING)
               [day_p2_key]: [
-                  { id: 'p2_1', role: 'model', timestamp: createIso(day_p2, 7, 0), text: "🗓️ PLANNING: Saturday - Weekend recovery time! I've tentatively scheduled hiking with Alex at Redwood Trail at 8 AM—it's been 2+ weeks since you connected, and this is perfect post-launch recovery. Afternoon is open for deep cleaning, reading, or pure relaxation. Flex the plan as needed!" }
+                  { id: 'p2_1', role: 'model', timestamp: createIso(day_p2, 9, 0), text: "🗓️ **PLANNING MODE** - Weekend Recovery:\n\n**Relationship Check:**\n• Alex: Will be at **6 days** since last contact by Saturday (Kinship Debt 1×6=6, approaching \"Needs Attention\" threshold)\n• Grandma: Could use a check-in call (family connection)\n\n**Recommendation**: Morning hike with Alex at Redwood Trail (9 AM, 2h) would reset his status and provide perfect post-launch recovery. Afternoon call with Grandma (30m) keeps family connections strong.\n\nThis leaves Saturday afternoon wide open for deep cleaning, reading, or pure relaxation. Thoughts?" },
+                  { id: 'p2_2', role: 'user', timestamp: createIso(day_p2, 9, 30), text: "Love it! Alex has been asking about hiking for weeks, and Grandma would appreciate a call." },
+                  { id: 'p2_3', role: 'model', timestamp: createIso(day_p2, 9, 31), thought: "User confirms both relationship activities. This will reset Alex's Kinship Debt and strengthen family bond with Grandma. Good balance of friend + family.", text: "✅ **Saturday Orchestration**:\n\n**9:00 AM** - Hiking with Alex at Redwood Trail (2h) 🥾\n**1:00 PM** - Call with Grandma (30m) 📞\n**2:00 PM** - Open flex time (reading, cleaning, relaxation)\n\nYou'll walk into Sunday with strong relationship momentum and full recovery from launch week! 🌲" }
               ],
               
               // Sunday (PLANNING)
               [day_p3_key]: [
-                  { id: 'p3_1', role: 'model', timestamp: createIso(day_p3, 9, 0), text: "🗓️ PLANNING: Sunday - Wrapping up the victory week! Family Brunch at 11 AM (tentative) will close out your family connection goals. I'm planning to schedule meal prep for the afternoon so you walk into next Monday fully prepared. Weekly goal review (30 min) will help set intentions for the next sprint." }
+                  { id: 'p3_1', role: 'model', timestamp: createIso(day_p3, 9, 0), text: "🗓️ **PLANNING MODE** - Week Wrap-Up:\n\n**System Status:**\n• All relationships stable (Alex reset Saturday, Sarah reset Thursday)\n• Launch week complete 🎉\n• Next week capacity: clean slate\n\n**Sunday Proposal:**\n• 11:00 AM - Family Brunch (2h, quality time with Mom/Grandma/Grandpa)\n• 2:00 PM - Meal Prep for new week (1.5h)\n• 4:00 PM - Weekly Review & Next Sprint Planning (30m)\n\nThis closes out family connection goals and sets you up for Monday with meal prep done and clear intentions. Want to lock this in?" },
+                  { id: 'p3_2', role: 'user', timestamp: createIso(day_p3, 9, 45), text: "Perfect! This was a great week. Really appreciate how you balanced my interview, launch, and family commitments." },
+                  { id: 'p3_3', role: 'model', timestamp: createIso(day_p3, 9, 46), thought: "User expressing satisfaction with orchestration. This validates the temporal mode switching, capacity management, and relationship tracking systems. Wrapping up week on high note.", text: "Thank you! Here's what we accomplished together:\n\n✅ Redistributed 11.5h → 8.5h on interview day (prevented burnout)\n✅ Connected with Sarah in CRITICAL status (mentor relationship preserved)\n✅ Protected Grandma's PT commitment (family priority honored)\n✅ Light launch day with monitoring windows\n✅ Weekend recovery with Alex hike + Grandma call\n\n**MEMORY SAVED**: User values proactive capacity management and relationship balance during high-pressure weeks.\n\nYou're all set for next week! 🚀" }
               ]
           };
       }
@@ -414,6 +427,10 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
           delete next[date];
           return next;
       });
+      // Explicitly refresh stats after clearing to update UI immediately
+      setTimeout(() => {
+          storageService.getStats().then(stats => setStorageStats(stats)).catch(e => console.error("Stats refresh error", e));
+      }, 100);
   };
 
   const handleClearAllHistory = async () => {
@@ -447,16 +464,19 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
         const targetName = normalize(args.person_name);
         const matchedKey = Object.keys(currentLedger).find(k => normalize((currentLedger[k] as Person).name) === targetName || normalize(k) === targetName);
 
+        // Use the current viewing date for last_contact, not system time
+        const contactDate = toDateString(currentDate);
+
         if (!matchedKey) {
             const newPerson: Person = {
                 name: args.person_name, relation: args.relation || "New Contact", category: args.category || 'Network',
-                priority: 3, notes: args.notes_update, status: args.status_level, last_contact: new Date().toISOString(),
+                priority: 3, notes: args.notes_update, status: args.status_level, last_contact: contactDate,
                 image: `https://ui-avatars.com/api/?name=${args.person_name}&background=random`
             };
             pendingContactRef.current = newPerson;
             return `Proposal to add ${args.person_name} prepared.`;
         } else {
-            setLedger(prev => ({ ...prev, [matchedKey]: { ...(prev[matchedKey] as Person), notes: args.notes_update, status: args.status_level, last_contact: new Date().toISOString() } }));
+            setLedger(prev => ({ ...prev, [matchedKey]: { ...(prev[matchedKey] as Person), notes: args.notes_update, status: args.status_level, last_contact: contactDate } }));
             return `Updated ${args.person_name}'s ledger.`;
         }
     },
@@ -650,8 +670,8 @@ ${memoryContext}`);
         }
         
         const briefingPrompt = mode === 'demo' 
-            ? `${temporalContext} ${currentDate.toLocaleDateString()}. Compare with ${yesterdayStr}. IMPORTANT: Explicitly mention that you are assuming the context of 9:00 AM on this specific date for the simulation.`
-            : `${temporalContext} ${currentDate.toLocaleDateString()}. Compare with ${yesterdayStr}.`;
+            ? `${temporalContext} ${currentDate.toLocaleDateString()}. IMPORTANT: First call get_relationship_status and get_life_context to retrieve current data, then provide your briefing. Compare with ${yesterdayStr}. Explicitly mention that you are assuming the context of 9:00 AM on this specific date for the simulation.`
+            : `${temporalContext} ${currentDate.toLocaleDateString()}. IMPORTANT: First call get_relationship_status and get_life_context to retrieve current data, then provide your briefing. Compare with ${yesterdayStr}.`;
 
         await geminiService.sendMessageStream(briefingPrompt, null, executors, (text, thought) => {
             updateCurrentDayMessages(prev => {
