@@ -1,3 +1,43 @@
+/**
+ * DESIGN DECISION: Interactive Tutorial Overlay
+ * 
+ * This component implements a step-by-step onboarding experience for new users.
+ * 
+ * Key Design Principles:
+ * 
+ * 1. **Progressive Disclosure**:
+ *    Rather than overwhelming users with documentation, the tutorial reveals
+ *    features sequentially, building mental models incrementally.
+ * 
+ * 2. **Context-Aware Content**:
+ *    Demo mode tutorial explains "this is sample data" vs. live mode "this is your data"
+ *    Different messaging prevents confusion.
+ * 
+ * 3. **Visual Highlighting**:
+ *    Positioning classes direct attention to specific UI areas being explained.
+ *    Users connect concepts to interface elements immediately.
+ * 
+ * 4. **Skip Option**:
+ *    Power users can bypass tutorial. Completion flag stored in localStorage
+ *    prevents repeat on subsequent visits.
+ * 
+ * 5. **Mobile Responsive**:
+ *    Position classes use Tailwind responsive prefixes (lg:) for adaptive layouts.
+ *    Mobile shows centered cards; desktop shows positioned callouts.
+ * 
+ * Steps Explained:
+ * - Welcome: Mission statement and value proposition
+ * - Kinship Ledger: Relationship health monitoring concept
+ * - Life Inventory: Fixed vs flexible task classification
+ * - Multimodal Context: Image/voice input capabilities
+ * - Calendar Sync: Google integration benefits
+ * - Temporal Awareness: Past/present/future modes
+ * 
+ * Completion triggers:
+ * - localStorage flag: 'life_tutorial_completed'
+ * - Callback to parent: onComplete() to proceed to app
+ */
+
 import React, { useState, useEffect } from 'react';
 
 interface Step {

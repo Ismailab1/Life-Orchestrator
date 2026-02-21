@@ -1,3 +1,41 @@
+/**
+ * DESIGN DECISION: Orchestration Proposal Component
+ * 
+ * This component displays AI-generated schedule optimizations for user approval.
+ * 
+ * Key Principles:
+ * 
+ * 1. **Transparency Through Reasoning**:
+ *    The collapsible "Strategic Reasoning" section shows the AI's thought process.
+ *    Users can understand *why* the AI made specific scheduling decisions.
+ *    This builds trust and enables users to learn scheduling patterns.
+ * 
+ * 2. **Binary Approval Flow**:
+ *    Accept = Apply all changes atomically
+ *    Reject = Keep current state
+ *    
+ *    No partial edits to prevent internally inconsistent schedules.
+ *    If users want adjustments, they ask the AI to revise and resubmit.
+ * 
+ * 3. **Visual Hierarchy**:
+ *    - Reasoning: Collapsed by default (power users can expand)
+ *    - Timeline: Prominent display (most users only read this)
+ *    - Actions: Clear approve/reject buttons
+ * 
+ * 4. **Monospace Timeline**:
+ *    Font-mono preserves formatting for time-aligned schedules:
+ *    ```
+ *    9:00 AM  - Team Sync (30m)
+ *    10:00 AM - Deep Work  (2h)
+ *    ```
+ *    Alignment helps users scan quickly.
+ * 
+ * 5. **Accessibility**:
+ *    Keyboard navigation (Tab to buttons, Enter to activate)
+ *    ARIA labels for screen readers
+ *    High contrast colors for readability
+ */
+
 import React from 'react';
 import { OrchestrationProposal } from '../types';
 

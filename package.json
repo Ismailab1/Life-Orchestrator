@@ -1,4 +1,49 @@
 {
+  /**
+   * DESIGN DECISION: Dependency Strategy
+   * 
+   * This package.json reflects a minimal, purposeful dependency philosophy:
+   * 
+   * Production Dependencies (Keep Runtime Lean):
+   * 
+   * 1. **@google/generative-ai**: Official Gemini SDK
+   *    Why: Type-safe AI integration, function calling support, streaming
+   *    Alternative considered: OpenAI SDK (rejected: Gemini has better function calling)
+   * 
+   * 2. **idb**: IndexedDB wrapper
+   *    Why: Promise-based API, TypeScript types, tiny (~3KB)
+   *    Current status: Prepared for future migration, not actively used
+   *    Alternative: Raw IndexedDB API (rejected: verbose, error-prone)
+   * 
+   * 3. **react + react-dom**: UI framework
+   *    Version 19.2.x (latest major)
+   *    Why: Virtual DOM diffing, component model, ecosystem
+   * 
+   * 4. **react-markdown**: Markdown rendering
+   *    Why: AI responses use markdown (bold, lists, code blocks)
+   *    Alternative: Dangerously setting innerHTML (rejected: XSS risk)
+   * 
+   * Development Dependencies:
+   * 
+   * 5. **tailwindcss + plugins**: Utility-first CSS
+   *    Why: Rapid prototyping, consistent design system, tree-shakeable
+   * 
+   * 6. **vite**: Build tool
+   *    Why: Fast HMR (~50ms), ES modules, minimal config
+   *    Alternative: Create React App (rejected: slow, opinionated)
+   * 
+   * 7. **typescript**: Type safety
+   *    Why: Catch errors at compile time, better IDE support
+   *    Version: ~5.8.2 (tilde = accept patches, not minors)
+   * 
+   * Notably Absent:
+   * - No state management (Redux, Zustand): Props drilling sufficient at this scale
+   * - No routing (React Router): Single-page app with view state
+   * - No form library (Formik, React Hook Form): Simple inline forms
+   * - No test framework: Manual testing sufficient for MVP (future: Vitest)
+   * 
+   * Philosophy: Add dependencies when pain justifies complexity, not preemptively.
+   */
   "name": "life-orchestrator",
   "private": true,
   "version": "0.0.0",

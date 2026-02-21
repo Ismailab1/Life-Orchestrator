@@ -1,3 +1,48 @@
+/**
+ * DESIGN DECISION: Career/Life Inventory Component
+ * 
+ * This component manages the user's task/event inventory across four life categories:
+ * Career, Life, Health, and Family.
+ * 
+ * Key Design Principles:
+ * 
+ * 1. **Fixed vs Flexible Task Dichotomy**:
+ *    - Fixed: Hard-scheduled appointments (meetings, deadlines)
+ *    - Flexible: Time-blocks that can be optimized (gym, admin work)
+ *    
+ *    This binary classification enables AI orchestration. Fixed tasks anchor
+ *    the day; flexible tasks fill optimal energy windows.
+ * 
+ * 2. **Recurrence Without Bloat**:
+ *    Instead of creating 52 instances of "Weekly Team Sync", store one rule.
+ *    Recurrence options:
+ *    - Daily, Weekly (select specific days), Monthly (select day-of-month)
+ *    UI shows simplified controls; complex cron expressions avoided.
+ * 
+ * 3. **Visual Priority Coding**:
+ *    High/Medium/Low priority affects:
+ *    - Badge colors (red/yellow/green)
+ *    - Sort order in lists
+ *    - AI scheduling weight
+ * 
+ * 4. **Category-Based Organization**:
+ *    Four life domains (Career/Life/Health/Family) enable:
+ *    - Balanced scheduling (AI ensures no domain neglected)
+ *    - Analytics (time spent per category)
+ *    - Mental model alignment (matches how people think)
+ * 
+ * 5. **Inline Editing Pattern**:
+ *    Click to expand → Edit → Auto-save on blur
+ *    No "Edit Mode" toggle needed. Reduces cognitive overhead.
+ * 
+ * 6. **Google Calendar Integration Indicators**:
+ *    Tasks with gcal_id show sync icon. Users know what's backed up to Google.
+ * 
+ * Technical Details:
+ * - RecurrenceControl: Nested component for recurrence rule editing
+ * - InfoTooltip: Contextual help without cluttering UI
+ * - Optimistic updates: UI changes immediately, sync happens async
+ */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';

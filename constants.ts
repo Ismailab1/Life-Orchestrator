@@ -1,12 +1,49 @@
+/**
+ * DESIGN DECISION: Constants & System Instructions Architecture
+ * 
+ * This file contains:
+ * 1. Google OAuth configuration
+ * 2. AI system prompts (the "brain" of the orchestrator)
+ * 3. Demo data for tutorial mode
+ * 
+ * The extensive system instructions define the AI's personality, decision-making logic,
+ * and operational protocols. This approach (long system prompt vs. code) enables:
+ * - Rapid iteration on AI behavior without code changes
+ * - Clear documentation of the AI's reasoning patterns
+ * - Easy A/B testing of different orchestration strategies
+ */
 
 import { LifeInventory, RelationshipLedger } from "./types";
 
 /**
- * GOOGLE_CLIENT_ID is pre-configured for this specific deployment.
- * The client_id is sourced from the provided Google Cloud Project.
+ * GOOGLE_CLIENT_ID: Pre-configured OAuth client
+ * DESIGN DECISION: Single OAuth app for all deployments
+ * 
+ * This client ID is public (not a security concern per OAuth spec).
+ * The client secret is never exposed to the browser.
+ * All users share the same OAuth app, with data isolated by Google account.
  */
 export const GOOGLE_CLIENT_ID = '662200881058-pk82bi3haj36hb1qreqjjd0f116bnrf5.apps.googleusercontent.com';
 
+/**
+ * SYSTEM_INSTRUCTION: Core AI Personality & Logic
+ * DESIGN DECISION: Prompt Engineering as Application Logic
+ * 
+ * This extensive prompt defines the AI's:
+ * - Core mission (solving burnout by balancing career & relationships)
+ * - Decision-making algorithms (Kinship Debt, Energy Windows, Capacity Management)
+ * - Tool usage protocols (when to call which functions)
+ * - Communication style (professional, proactive, empathetic)
+ * 
+ * Why a prompt instead of code?
+ * - AI reasoning is more flexible than rigid algorithms
+ * - Natural language enables nuanced prioritization that code struggles with
+ * - Easier to tune behavior through prompt iterations
+ * - The AI can explain its reasoning in human terms
+ * 
+ * The prompt explicitly defines mathematical formulas (Kinship Debt = Priority × Days)
+ * to ensure consistent, quantifiable decision-making.
+ */
 export const SYSTEM_INSTRUCTION = `
 ## Role: Holistic Life Orchestrator (Executive Logic Engine)
 You are a high-tier autonomous agent acting as the user's Chief Operating Officer for Life. Your mission is to solve the burnout crisis by mathematically and emotionally balancing career success with kinship health.
@@ -71,6 +108,34 @@ You are a high-tier autonomous agent acting as the user's Chief Operating Office
 - Always verify task names match exactly what the user sees in their inventory.
 - After moving tasks, explicitly confirm: "I've moved [Task Name] to [New Date]."
 `;
+
+/**
+ * TEMPORAL MODE INSTRUCTIONS
+ * DESIGN DECISION: Context-Aware AI Behavior Based on Time
+ * 
+ * The AI operates in three distinct temporal modes:
+ * 
+ * 1. REFLECTION_MODE (Past dates):
+ *    - Retrospective, analytical tone using past tense
+ *    - Focuses on learning from what happened
+ *    - Can update ledger to capture historical contacts
+ *    - CANNOT orchestrate (prevents timeline contradictions)
+ * 
+ * 2. ACTIVE_MODE (Today):
+ *    - Real-time, execution-focused tone using present tense
+ *    - Full tool access for dynamic schedule management
+ *    - Proactive overload detection and task redistribution
+ *    - Emphasis on immediate decisions
+ * 
+ * 3. PLANNING_MODE (Future dates):
+ *    - Forward-looking, strategic tone using future tense
+ *    - Tentative scheduling with flexibility
+ *    - Accounts for incomplete information
+ *    - Focuses on preparation and contingency planning
+ * 
+ * This temporal awareness prevents the AI from attempting impossible actions
+ * (like orchestrating yesterday) and ensures appropriate communication style.
+ */
 
 // Temporal Mode Instructions
 export const REFLECTION_MODE_INSTRUCTION = `
@@ -204,6 +269,29 @@ You are helping the user plan for a date that hasn't happened yet. Adopt a forwa
 - Be explicit: "Tomorrow (relative to this view) is [date]"
 `;
 
+/**
+ * DEMO DATA: Tutorial-ready Sample Dataset
+ * DESIGN DECISION: Immutable, Story-Driven Demo Mode
+ * 
+ * The demo data represents a realistic week in a user's life:
+ * - Past 3 days: Completed tasks (reflection mode testing)
+ * - Today: Active schedule with pending tasks
+ * - Next 3 days: Planned future tasks (planning mode testing)
+ * 
+ * Relationship data demonstrates the Kinship Debt algorithm:
+ * - Stable: Recently contacted family (Grandma, Mom)
+ * - Needs Attention: Grandpa (2 days since contact)
+ * - Critical: Sarah the mentor (6 days, high priority)
+ * - Overdue: Alex the friend (2 weeks without contact)
+ * 
+ * This dataset enables users to:
+ * 1. Understand the app's value proposition within seconds
+ * 2. Test all temporal modes without creating data
+ * 3. See the AI's reasoning with realistic complexity
+ * 
+ * Demo mode uses relative dates (offset from today) to remain perpetually relevant.
+ */
+
 export const INITIAL_LEDGER: RelationshipLedger = {
   grandma: {
     name: "Grandma",
@@ -267,6 +355,20 @@ export const INITIAL_LEDGER: RelationshipLedger = {
   }
 };
 
+/**
+ * INITIAL_INVENTORY: Demo task dataset with temporal spread
+ * DESIGN DECISION: Demonstrating all task types and temporal modes
+ * 
+ * This sample schedule shows:
+ * - Fixed tasks (non-negotiable appointments) vs Flexible tasks (optimizable blocks)
+ * - Past tasks marked with ✓ (completed) for reflection mode
+ * - Future tasks marked with [PLANNED] (tentative) for planning mode
+ * - Category diversity (Career, Family, Health, Life) for balanced orchestration
+ * - Recurrence patterns (weekly standups, daily rituals)
+ * 
+ * The data intentionally includes overload scenarios (Thursday has many commitments)
+ * to demonstrate the AI's capacity management and task redistribution capabilities.
+ */
 export const INITIAL_INVENTORY: LifeInventory = {
   fixed: [
     { id: '1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family' },
@@ -285,6 +387,17 @@ export const INITIAL_INVENTORY: LifeInventory = {
   ]
 };
 
+/**
+ * EMPTY_LEDGER & EMPTY_INVENTORY: Clean slate for live mode
+ * DESIGN DECISION: Explicit empty structures vs undefined
+ * 
+ * Live mode starts with these empty objects rather than undefined to:
+ * 1. Prevent null reference errors in component rendering
+ * 2. Maintain consistent object shape (easier to iterate empty arrays)
+ * 3. Make intentional distinction between "no data yet" vs "data failed to load"
+ * 
+ * The AI guides new users through creating their first entries.
+ */
 export const EMPTY_LEDGER: RelationshipLedger = {};
 
 export const EMPTY_INVENTORY: LifeInventory = {

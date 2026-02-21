@@ -1,3 +1,39 @@
+/**
+ * DESIGN DECISION: Chat Interface Component Architecture
+ * 
+ * This component serves as the primary user interaction surface, implementing:
+ * 
+ * 1. **Multi-Modal Input**:
+ *    - Text messages (standard chat)
+ *    - Image uploads (compressed via imageService)
+ *    - Calendar date selection (temporal navigation)
+ * 
+ * 2. **Streaming UI**:
+ *    - Thinking indicators while AI processes
+ *    - Token-by-token text streaming for responsiveness
+ *    - Animated loading states (rotating messages)
+ * 
+ * 3. **Embedded Interactive Elements**:
+ *    - OrchestrationProposals: Accept/reject schedule changes inline
+ *    - ContactProposals: Add new people to ledger with one click
+ *    - Markdown rendering: Formatted AI responses with code, lists, emphasis
+ * 
+ * 4. **Storage Awareness**:
+ *    - Real-time token count for user input (avoid API errors)
+ *    - Daily image upload limits (prevent quota exhaustion)
+ *    - Storage stats display (quota percentage visible)
+ * 
+ * 5. **Temporal Context Display**:
+ *    - Shows current viewing date in header
+ *    - Highlights tasks for that date
+ *    - Calendar popover for quick date switching
+ * 
+ * Design Philosophy:
+ * - Single-page-app feel (no page transitions)
+ * - Conversational interface reduces cognitive load vs forms
+ * - Visual feedback for all actions (no silent failures)
+ * - Accessible keyboard navigation (Enter to send, Esc to close modals)
+ */
 
 import React, { useRef, useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';

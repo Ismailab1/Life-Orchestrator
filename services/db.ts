@@ -1,6 +1,41 @@
+/**
+ * DESIGN DECISION: IndexedDB Layer for Future Scalability
+ * 
+ * This database implementation is currently unused but prepared for future requirements:
+ * 
+ * Why IndexedDB alongside localStorage?
+ * 1. **Vector embeddings**: For semantic search of memories and conversations
+ * 2. **Larger storage**: IndexedDB can store gigabytes vs localStorage's 5MB
+ * 3. **Advanced queries**: Indexed queries by date, user, type for performance
+ * 4. **Offline-first**: Better sync capabilities for future mobile apps
+ * 
+ * Why not use it now?
+ * - Async API adds complexity to state management
+ * - Current data size fits comfortably in localStorage
+ * - Migration path is clear when needed
+ * 
+ * Schema Design:
+ * - users: Multi-user support skeleton
+ * - conversations: Message history with optional embeddings
+ * - memories: AI learned facts with semantic search capability
+ * - inventory/ledger: Blob storage matching current localStorage structure
+ * - tasks: Granular task storage for advanced filtering (future optimization)
+ * 
+ * The schema is keyed by userId to enable future multi-user or multi-device sync.
+ */
+
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { LifeInventory, RelationshipLedger, ChatMessage, Memory, UserProfile, Task, Person } from '../types';
 
+/**
+ * Schema Definition
+ * DESIGN DECISION: Compound indexes for efficient querying
+ * 
+ * The 'by-date' index uses [userId, timestamp] to enable:
+ * - Fast retrieval of all messages for a user
+ * - Date-range queries (e.g., "get last 7 days of messages")
+ * - Sorted results without additional sorting client-side
+ */
 interface LifeSystemDB extends DBSchema {
   users: {
     key: string;
@@ -34,6 +69,18 @@ interface LifeSystemDB extends DBSchema {
   };
 }
 
+/**
+ * Database versioning and migration
+ * DESIGN DECISION: Version 1 schema with forward-compatible structure
+ * 
+ * The upgrade callback defines schema changes between versions.
+ * When DB_VERSION increments, this function runs to migrate existing data.
+ * 
+ * Current approach:
+ * - All object stores created upfront
+ * - Space efficient (only create stores that don't exist)
+ * - Forward-compatible (new fields can be added without schema changes)
+ */
 const DB_NAME = 'life-orchestrator-db';
 const DB_VERSION = 1;
 
@@ -136,6 +183,27 @@ export class LifeDatabase {
   async getInventory(userId: string): Promise<LifeInventory | undefined> {
     const res = await (await this.dbPromise).get('inventory', userId);
     return res?.data;
+
+  /**
+   * Semantic Search Implementation (Placeholder)
+   * DESIGN DECISION: Client-side vector search for privacy
+   * 
+   * This would enable queries like:
+   * - "Show me times I discussed burnout"
+   * - "Find memories about morning routines"
+   * 
+   * Approach:
+   * 1. Generate embeddings using Gemini's embedding API
+   * 2. Store embeddings alongside messages/memories
+   * 3. Compute cosine similarity client-side for search
+   * 
+   * Why client-side?
+   * - No server = no data leaves user's device
+   * - Embeddings are small (~100 floats per text)
+   * - Modern browsers handle vector math efficiently
+   * 
+   * Note: Currently unimplemented, prepared for future feature.
+   */
   }
 
   async saveLedger(userId: string, ledger: RelationshipLedger): Promise<void> {

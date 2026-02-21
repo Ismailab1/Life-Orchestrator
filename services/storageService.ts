@@ -1,10 +1,42 @@
+/**
+ * DESIGN DECISION: Storage Management Service
+ * 
+ * This service monitors and manages browser storage to prevent quota exhaustion.
+ * 
+ * Why a dedicated storage service?
+ * 1. **Quota awareness**: LocalStorage has a ~5MB hard limit. Exceeding it breaks the app.
+ * 2. **Proactive management**: Users see warnings before hitting limits
+ * 3. **Per-data breakdown**: Identify what's consuming space (usually chat history)
+ * 4. **Graceful cleanup**: Enable targeted deletion (e.g., old messages) vs. nuclear reset
+ * 
+ * Storage Strategy:
+ * - localStorage: Primary persistence (synchronous, simple, sufficient)
+ * - IndexedDB: Removed from this version (was causing migration complexity)
+ * - Future: IndexedDB for embeddings/media, localStorage for structured data
+ * 
+ * The service calculates byte sizes using Blob conversion, which is accurate for
+ * UTF-8 strings (handles emoji, special characters correctly).
+ */
 
 import { StorageStats, ChatHistory } from "../types";
 
 export const storageService = {
   /**
-   * Calculates detailed storage statistics from localStorage.
-   * IndexedDB has been removed - localStorage is the single source of truth.
+   * getStats: Calculate storage usage breakdown
+   * DESIGN DECISION: Real-time calculation vs cached stats
+   * 
+   * Stats are calculated on-demand by iterating localStorage rather than cached.
+   * This approach:
+   * - Always accurate (no stale data)
+   * - Minimal performance impact (localStorage is fast, ~1ms calculation)
+   * - Simpler implementation (no cache invalidation logic)
+   * 
+   * The function calculates:
+   * - Total usage across all keys
+   * - Per-category breakdown (messages, ledger, inventory, memories)
+   * - Per-date message sizes for granular cleanup
+   * 
+   * The 5MB quota is a soft limit (actual varies by browser), but 5MB is conservative.
    */
   async getStats(): Promise<StorageStats> {
     try {

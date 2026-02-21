@@ -1,3 +1,43 @@
+/**
+ * DESIGN DECISION: Kinship Ledger Component
+ * 
+ * This component visualizes and manages the user's relationship network.
+ * 
+ * Core Concepts:
+ * 
+ * 1. **Visual Relationship Health**:
+ *    - Color-coded status badges (red=critical, amber=overdue, green=stable)
+ *    - Priority indicators (1-10 scale, high numbers = more important)
+ *    - Days since last contact (time decay visualization)
+ * 
+ * 2. **Kinship Debt Algorithm Display**:
+ *    The UI reflects the mathematical health calculation (Priority × Days).
+ *    Users see the formula in action, not just abstract "needs attention" labels.
+ * 
+ * 3. **Photo-Based Recognition**:
+ *    Profile photos enable visual scanning (faster than reading names).
+ *    Important for elderly relatives or large networks.
+ * 
+ * 4. **Zero-Friction Editing**:
+ *    - Inline editing (click to modify)
+ *    - Auto-save on blur (no "Save" button needed)
+ *    - Drag-and-drop image upload
+ * 
+ * 5. **Category Organization**:
+ *    Family / Friends / Network tabs enable mental model alignment:
+ *    - Family: Immediate relatives, partners
+ *    - Friends: Close personal relationships
+ *    - Network: Professional connections, mentors
+ * 
+ * 6. **AI Integration Affordance**:
+ *    "Analyze with AI" button enables photo-based relationship context extraction
+ *    (future feature: AI extracts notes from photos of people)
+ * 
+ * Technical Details:
+ * - InfoTooltip: Portal-based tooltips that escape parent overflow constraints
+ * - Status config: Centralized styling for consistency
+ * - Optimistic UI: Changes immediately visible, saved async
+ */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';

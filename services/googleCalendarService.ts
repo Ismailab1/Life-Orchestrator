@@ -1,3 +1,38 @@
+/**
+ * DESIGN DECISION: Google Calendar Integration Service
+ * 
+ * This service enables bidirectional sync between Life Orchestrator and Google Calendar:
+ * - Import: Read user's calendar events into the app
+ * - Export: Push orchestrated schedules back to Google Calendar
+ * 
+ * Key Design Choices:
+ * 
+ * 1. **OAuth 2.0 with User Consent**:
+ *    Uses Google Identity Services (GIS) for secure, user-controlled authentication.
+ *    Users explicitly grant calendar access. No backend server needed.
+ * 
+ * 2. **Client-Side Only**:
+ *    All calendar operations happen in the browser. Privacy-first: no data
+ *    passes through intermediary servers.
+ * 
+ * 3. **Error Categorization**:
+ *    Google APIs return cryptic errors. The handleApiError method translates
+ *    technical errors into actionable user instructions.
+ * 
+ * 4. **Recurrence Mapping**:
+ *    Maps Google Calendar's RRULE format to our simplified RecurrenceRule format.
+ *    Supports daily, weekly, and monthly patterns.
+ * 
+ * 5. **CSRF Protection**:
+ *    Generates random state tokens to prevent cross-site request forgery attacks
+ *    during OAuth flow.
+ * 
+ * Technical Dependencies:
+ * - gapi.client: Google API client library (calendar v3 REST API)
+ * - google.accounts.oauth2: Google Identity Services for OAuth
+ * 
+ * Both libraries are loaded dynamically to avoid blocking initial page load.
+ */
 
 import { Task, RecurrenceRule } from "../types";
 
@@ -17,7 +52,17 @@ export class GoogleCalendarService {
 
   /**
    * Categorizes technical errors into user-friendly instructions.
-   * Maps specific HTTP status codes and error types to actionable messages.
+   * DESIGN DECISION: User-centric error messages
+   * 
+   * Google APIs return developer-oriented errors. Users don't know what
+   * "403 insufficient_scope" means. This method maps technical codes to
+   * actionable instructions:
+   * 
+   * - OAuth errors → "Check permissions"
+   * - Network errors → "Check VPN/firewall"
+   * - Rate limits → "Wait and retry"
+   * 
+   * This improves support burden and user trust.
    */
   private handleApiError(error: any): string {
     console.error("GCal Technical Error Details:", error);

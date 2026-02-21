@@ -1,5 +1,217 @@
 # Life Orchestrator: Harmony in Every Dimension
 
+## Architecture & Design Decisions
+
+This section documents the key architectural decisions that shaped Life Orchestrator. Each choice reflects trade-offs between competing concerns: performance, privacy, usability, and maintainability.
+
+### 🏛️ **Core Architecture Philosophy: Local-First Privacy**
+All user data lives exclusively in the browser's localStorage (with IndexedDB prepared for future migration). No backend server, no database, no data collection. AI processing happens via Google's Gemini API, but conversations are ephemeral—Google doesn't store them.
+
+**Why local-first?**
+- User sovereignty: Data never leaves your control
+- Zero server costs: Deployment is static files
+- Instant cold starts: No database initialization or authentication flows
+- Privacy by design: GDPR/CCPA compliant by default
+
+**Trade-offs:**
+- 5MB localStorage quota requires aggressive storage management
+- No cross-device sync (future: optional cloud backup)
+- No collaborative features (single-user design)
+
+---
+
+### 🧠 **AI-Driven Design: Prompt Engineering as Application Logic**
+The AI's behavior is defined by extensive system prompts (see `constants.ts: SYSTEM_INSTRUCTION`) rather than rigid algorithms. This "prompt-first" approach enables:
+
+1. **Nuanced Decision-Making**: The AI balances competing priorities (career deadlines vs. family health) using natural language reasoning that code struggles to express.
+
+2. **Transparent Reasoning**: Users see the AI's thought process. When it suggests moving a task, it explains *why* (e.g., "Thursday is overloaded, moved grocery run to Friday").
+
+3. **Rapid Iteration**: Changing AI behavior is a prompt edit, not a code refactor. We can A/B test scheduling strategies by tweaking instructions.
+
+4. **Self-Documenting**: The system prompt IS the documentation of AI behavior. New developers read the prompt to understand orchestration rules.
+
+**Critical Design Choice: Temporal Modes**
+The AI operates in three modes based on the date being viewed:
+- **Reflection** (past): Retrospective analysis, no orchestration allowed
+- **Active** (today): Real-time optimization, proactive suggestions
+- **Planning** (future): Tentative schedules, contingency planning
+
+This prevents logical impossibilities (like orchestrating yesterday) and ensures appropriate communication tone.
+
+---
+
+### 📊 **Data Model: Fixed vs Flexible Task Dichotomy**
+Tasks are classified as:
+- **Fixed**: Hard-scheduled appointments (meetings, interviews, PT sessions)
+- **Flexible**: Time-blocks optimized by AI (gym, email, meal prep)
+
+This binary split enables the core orchestration algorithm:
+1. Fixed tasks anchor the day (immovable)
+2. Flexible tasks flow into optimal energy windows
+3. Overloads trigger proactive redistribution to future days
+
+**Alternative considered:** Priority-only system (1-10 scale)
+**Rejected because:** Priority alone doesn't capture "movability." A high-priority flexible task can shift; a medium-priority fixed task cannot.
+
+---
+
+### 💔 **Kinship Debt Algorithm: Quantifying Relationship Health**
+Relationship status is calculated as:
+
+**Kinship Debt = Priority × Days Since Last Contact**
+
+Thresholds:
+- < 5: Stable
+- 5-10: Needs Attention
+- 10-20: Critical
+- \> 20: Overdue
+
+**Why this formula?**
+- Objective: No guesswork about "when did I last call?"
+- Weighted: High-priority people (9-10) trigger alerts faster
+- Actionable: Clear thresholds drive AI suggestions
+
+**Example:**
+- Mom (Priority 9): After 1 day: Debt = 9 (Critical warning)
+- Colleague (Priority 3): After 3 days: Debt = 9 (same alert threshold)
+
+This ensures important relationships get attention proportional to their significance.
+
+---
+
+### 🔄 **Recurrence Without Bloat**
+Instead of creating 52 instances of "Weekly Team Sync," we store:
+```typescript
+{
+  title: "Team Sync",
+  recurrence: { frequency: 'weekly', weekDays: [1, 3] } // Monday & Wednesday
+}
+```
+
+Client-side expansion happens on-demand per date. This:
+- Saves 98% storage (one rule vs. N instances)
+- Enables easy editing ("Change all future instances")
+- Matches user mental model ("It's every Monday")
+
+---
+
+### 🎨 **Component Design: Inline Editing Pattern**
+All components (Kinship Ledger, Inventory) use:
+1. Click to expand/edit
+2. Auto-save on blur
+3. No "Edit Mode" toggle
+
+**Why?**
+- Reduces cognitive overhead (no mode switching)
+- Optimistic UI (changes immediate)
+- Matches user expectation (like spreadsheet cells)
+
+**Alternative considered:** Modal dialogs for editing
+**Rejected because:** Modals break flow and require explicit dismiss actions
+
+---
+
+### 🧩 **Dependency Strategy: Minimal, Purposeful**
+Production dependencies:
+- React: UI framework (unavoidable)
+- @google/generative-ai: Gemini SDK (core feature)
+- react-markdown: Render AI responses (security + formatting)
+- idb: IndexedDB wrapper (future-proofing)
+
+**Notably absent:**
+- No Redux/Zustand: Props drilling sufficient at current scale
+- No React Router: View state machine handles navigation
+- No form library: Simple inline forms don't justify abstraction
+- No CSS-in-JS: Tailwind's atomic classes are faster and smaller
+
+**Philosophy:** Add dependencies when pain justifies complexity, not preemptively.
+
+---
+
+### 🔒 **Security: Function Calling as Safety Boundary**
+The AI cannot execute arbitrary code. It can only call pre-defined functions (executors) with validated schemas.
+
+**Tool Executor Pattern:**
+```typescript
+updateRelationshipStatus: async (args: UpdateRelationshipArgs) => {
+  // Validation happens here
+  if (!isValidPerson(args.person_name)) throw Error("Invalid person");
+  // Safe state mutation
+  updateLedger(args);
+}
+```
+
+Even if the AI tries to inject SQL, execute shell commands, or access system APIs, the executor functions filter and sanitize all inputs.
+
+**Defense in depth:**
+1. Gemini schema validation (type checking)
+2. TypeScript compile-time checks
+3. Runtime validation in executors
+4. localStorage isolation (no file system access)
+
+---
+
+### 📦 **Storage Management: Proactive Quota Awareness**
+LocalStorage has a ~5MB hard limit. Hitting it breaks the app silently.
+
+**Preventative measures:**
+1. Real-time usage display (percentage bar)
+2. Warnings at 80% (amber) and 90% (red)
+3. Granular cleanup (delete specific dates, not nuclear reset)
+4. Image compression (800x800 JPEG @ 70% quality = ~100KB)
+5. Daily upload limits (5 images/day)
+
+**Future:** IndexedDB migration removes quota concerns (~gigabytes available)
+
+---
+
+### 🚀 **Build System: Vite for Speed**
+Vite chosen over Create React App because:
+- Fast HMR (~50ms vs 5s): Save file → See changes instantly
+- ES modules: No bundling in dev mode
+- Code splitting: Automatic vendor chunk separation
+- Minimal config: ~40 lines vs 200+ in CRA eject
+
+**Trade-off:** Less opinionated (we configure more), but we gain control over:
+- CORS headers (required for Google OAuth)
+- Environment variable injection
+- Build optimizations
+
+---
+
+### 🎯 **UX Philosophy: Conversational Over Forms**
+Traditional productivity apps are form-heavy (fill title, date, time, priority, etc.).
+
+Life Orchestrator uses chat:
+> User: "Interview with Capital One tomorrow at 2pm"
+> AI: "Added 'Interview with Capital One' on [date] at 2:00 PM. Should I block 1 hour before for prep?"
+
+**Why chat?**
+- Lower cognitive load (natural language vs. form fields)
+- Context accumulates (AI remembers previous messages)
+- Multimodal (text + images + voice)
+- Explains decisions (AI shows reasoning)
+
+**Trade-off:** Requires robust AI (prompting complexity) vs. deterministic forms
+
+---
+
+### 🔮 **Future-Proofing: IndexedDB Skeleton**
+The `db.ts` service implements full IndexedDB schema but isn't used yet.
+
+**Why build it now?**
+- Smooth migration path when localStorage hits limits
+- Prepared for vector embeddings (semantic search)
+- Schema versioning system ready for future data migrations
+
+**When to switch?**
+- User hits 5MB quota regularly
+- Vector search feature launches
+- Multi-device sync implemented
+
+---
+
 ## Inspiration
 The inspiration for **Life Orchestrator** stems from the modern "productivity paradox." We have more tools than ever to manage our tasks, yet we feel more overwhelmed and disconnected. Traditional calendars treat our lives as a series of disconnected blocks, ignoring the emotional weight of a relationship "overdue" status or the energy required for "deep work." I wanted to build an agent that doesn't just list what you have to do, but *reasons* about how those things interact—a tool that prioritizes a 15-minute call with a recovering family member as highly as a corporate board meeting.
 

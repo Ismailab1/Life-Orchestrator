@@ -1,3 +1,43 @@
+/**
+ * DESIGN DECISION: Storage Management Modal
+ * 
+ * This component provides users with storage quota visibility and cleanup tools.
+ * 
+ * Key Design Principles:
+ * 
+ * 1. **Proactive Quota Management**:
+ *    LocalStorage has a hard 5MB limit. Rather than silently failing when quota
+ *    is exceeded, this UI:
+ *    - Shows real-time usage percentage
+ *    - Warns at 80% (amber) and 90% (red)
+ *    - Enables targeted cleanup before hitting limit
+ * 
+ * 2. **Granular Deletion**:
+ *    Users can delete specific dates' messages rather than nuclear "clear all".
+ *    This preserves important conversations while freeing space.
+ * 
+ * 3. **Data Breakdown**:
+ *    Per-category breakdown (Messages, Ledger, Inventory, Memories) helps users
+ *    understand what's consuming space. Usually messages with images are the culprit.
+ * 
+ * 4. **Per-Date Message Sizes**:
+ *    Shows storage used by each day's conversations. Users can identify
+ *    "heavy" days (e.g., days with many uploaded images) and clean those first.
+ * 
+ * 5. **Visual Feedback**:
+ *    - Progress bar with color-coded thresholds
+ *    - Warning icons for high usage
+ *    - Smooth animations for deletions
+ * 
+ * 6. **Nuclear Option**:
+ *    "Clear All Data" is intentionally destructive and requires confirmation.
+ *    Used as last resort for quota issues or app reset.
+ * 
+ * Technical Details:
+ * - Real-time stats calculation via storageService
+ * - Optimistic UI updates (immediate visual feedback)
+ * - Scrollable modal body for long date lists
+ */
 
 import React from 'react';
 import { StorageStats } from '../types';

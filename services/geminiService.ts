@@ -1,3 +1,35 @@
+/**
+ * DESIGN DECISION: Gemini AI Service Architecture
+ * 
+ * This service encapsulates all interactions with Google's Gemini AI model.
+ * 
+ * Core Design Principles:
+ * 
+ * 1. **Function Calling (Tool Use)**:
+ *    The AI doesn't just generate text—it invokes structured functions to modify state.
+ *    Tool definitions specify JSON schemas that Gemini uses to generate valid function calls.
+ * 
+ * 2. **Temporal Mode Awareness**:
+ *    The AI's system instruction changes based on whether the user is viewing:
+ *    - Past dates (reflection mode): No orchestration, retrospective analysis
+ *    - Today (active mode): Full capabilities, real-time optimization
+ *    - Future dates (planning mode): Tentative scheduling, preparation focus
+ * 
+ * 3. **Streaming Responses**:
+ *    Text streams token-by-token for responsive UX. Function calls stream last
+ *    (Gemini outputs reasoning, then tools).
+ * 
+ * 4. **Session State Management**:
+ *    The chat session persists across messages for context continuity.
+ *    It's reset when switching dates to prevent context bleed.
+ * 
+ * 5. **Abort Capability**:
+ *    Users can cancel long-running AI requests. This prevents wasted API calls
+ *    and allows quick correction when the AI goes off-track.
+ * 
+ * The tool definitions translate TypeScript interfaces into Gemini's schema format,
+ * enabling type-safe AI function calling.
+ */
 
 import { 
   GoogleGenerativeAI, 
@@ -9,6 +41,19 @@ import {
 } from "@google/generative-ai";
 import { SYSTEM_INSTRUCTION, REFLECTION_MODE_INSTRUCTION, ACTIVE_MODE_INSTRUCTION, PLANNING_MODE_INSTRUCTION } from "../constants";
 import { LifeInventory, RelationshipLedger, OrchestrationProposal, UpdateRelationshipArgs, Task } from "../types";
+
+/**
+ * Tool Definitions
+ * DESIGN DECISION: Declarative function schemas for AI
+ * 
+ * Each tool definition tells Gemini:
+ * - What the function does (description)
+ * - What parameters it accepts (schema)
+ * - Which parameters are required
+ * 
+ * The AI generates JSON matching these schemas, which we parse and execute.
+ * This is safer than allowing the AI to write code directly.
+ */
 
 // --- Tool Definitions (Adapted for @google/generative-ai) ---
 // Note: The schema format is slightly different (SchemaType vs Type) but structure is similar.
@@ -149,17 +194,34 @@ const saveMemoryTool: FunctionDeclaration = {
 
 const moveTasksTool: FunctionDeclaration = {
     name: 'move_tasks',
-    description: 'Moves specific tasks to a new date.',
+    description: 'Moves specific tasks to a new date. Use when detecting overload or user requests rescheduling.',
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
-        task_identifiers: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-        target_date: { type: SchemaType.STRING }
+        task_identifiers: { 
+          type: SchemaType.ARRAY, 
+          items: { type: SchemaType.STRING },
+          description: 'Array of task titles or IDs to move'
+        },
+        target_date: { 
+          type: SchemaType.STRING,
+          description: 'Target date in YYYY-MM-DD format'
+        }
       },
       required: ['task_identifiers', 'target_date']
     }
 };
 
+/**
+ * ToolExecutors Interface
+ * DESIGN DECISION: Type-safe executor contract
+ * 
+ * This interface ensures that the executors object passed to the service
+ * implements all required functions with correct signatures.
+ * 
+ * The service doesn't implement state management—it delegates to these executors,
+ * maintaining separation of concerns (AI logic vs. state management).
+ */
 interface ToolExecutors {
   getRelationshipStatus: () => Promise<RelationshipLedger>;
   getLifeContext: (args?: { date?: string }) => Promise<LifeInventory>;
@@ -172,6 +234,21 @@ interface ToolExecutors {
   moveTasks: (taskIdentifiers: string[], targetDate: string) => Promise<string>;
 }
 
+/**
+ * GeminiService Class
+ * DESIGN DECISION: Stateful service with session management
+ * 
+ * The service maintains:
+ * - model: Configured GenerativeModel instance
+ * - chat: Current ChatSession (maintains context across messages)
+ * - currentTemporalMode: Used to inject mode-specific instructions
+ * - abortController: Enables request cancellation
+ * 
+ * State is necessary here because:
+ * 1. Chat sessions maintain conversation history in Gemini's memory
+ * 2. Temporal mode affects system instructions but persists across messages
+ * 3. Abort controllers must be accessible across async boundaries
+ */
 export class GeminiService {
   private genAI: GoogleGenerativeAI;
   private model: GenerativeModel;
@@ -186,6 +263,17 @@ export class GeminiService {
     
     this.genAI = new GoogleGenerativeAI(apiKey);
     
+    /**
+     * Tool Registration
+     * DESIGN DECISION: All tools registered upfront
+     * 
+     * The model is configured with all available tools at initialization.
+     * Gemini decides which tools to call based on the conversation context
+     * and the tool descriptions.
+     * 
+     * Alternative considered: Dynamic tool registration per conversation
+     * Rejected because: Adds complexity, and all tools are lightweight
+     */
     this.tools = [
       getRelationshipStatusTool, 
       getLifeContextTool, 

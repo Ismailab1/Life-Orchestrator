@@ -1,3 +1,40 @@
+/**
+ * DESIGN DECISION: Marketing Landing Page
+ * 
+ * This component serves as the entry point for new users, implementing:
+ * 
+ * 1. **Clear Value Proposition**:
+ *    "Solve burnout by balancing career and relationships"
+ *    Users understand the problem being solved within seconds.
+ * 
+ * 2. **Low-Friction Demos**:
+ *    "Try Demo" button requires no signup. Instant gratification reduces bounce.
+ *    Demo mode showcases AI capabilities with pre-populated realistic data.
+ * 
+ * 3. **Social Proof & Technical Credibility**:
+ *    - Powered by Gemini 2.5 Pro (Google's trust)
+ *    - LocalStorage privacy (no server, no data collection)
+ *    - Open source positioning (transparency, customizability)
+ * 
+ * 4. **Legal Compliance**:
+ *    Privacy Policy and Terms of Service links satisfy regulatory requirements
+ *    (GDPR, CCPA). Checkbox consent before data collection.
+ * 
+ * 5. **Feature Explanation via FAQ**:
+ *    FAQs address complex concepts (Kinship Debt, Temporal Modes) in accessible language.
+ *    Reduces support burden by pre-answering common questions.
+ * 
+ * 6. **Conversion Optimization**:
+ *    Two CTAs: Demo (low commitment) vs. Live (high intent)
+ *    Different entry points for different user readiness levels.
+ * 
+ * Structure:
+ * - Hero: Value prop + CTAs
+ * - Features: Key differentiators (Kinship Ledger, Temporal Modes, etc.)
+ * - Visual Demo: Screenshots/video showing AI in action
+ * - FAQ: Deep-dive explanations
+ * - Footer: Legal + social links
+ */
 
 import React, { useState } from 'react';
 

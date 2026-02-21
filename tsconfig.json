@@ -1,4 +1,41 @@
 {
+  /**
+   * DESIGN DECISION: TypeScript Configuration
+   * 
+   * This configuration balances type safety with development speed.
+   * 
+   * Key Choices:
+   * 
+   * 1. **target: ES2022**:
+   *    Compiles to modern JavaScript (async/await, optional chaining, etc.)
+   *    Assumes modern browsers (95%+ compatibility)
+   *    Trade-off: Smaller bundle size vs. IE11 support (acceptable for 2026)
+   * 
+   * 2. **moduleResolution: bundler**:
+   *    Optimized for Vite's bundler behavior
+   *    Enables direct .ts imports without extensions
+   *    Faster than 'node' resolution in bundler context
+   * 
+   * 3. **jsx: react-jsx**:
+   *    Uses React 17+ JSX transform (no need to import React in every file)
+   *    Smaller bundles and cleaner code
+   * 
+   * 4. **skipLibCheck: true**:
+   *    Speeds up compilation by not type-checking node_modules
+   *    Assumes library types are correct (safe for popular packages)
+   * 
+   * 5. **isolatedModules: true**:
+   *    Each file compiles independently (required for Vite)
+   *    Enables faster HMR and parallel compilation
+   * 
+   * 6. **experimentalDecorators + useDefineForClassFields: false**:
+   *    Supports legacy decorator syntax used by some libraries
+   *    Maintains compatibility with Google APIs SDK
+   * 
+   * 7. **noEmit: true**:
+   *    TypeScript only does type checking, Vite handles compilation
+   *    Separation of concerns: TS for types, Vite for builds
+   */
   "compilerOptions": {
     "target": "ES2022",
     "experimentalDecorators": true,

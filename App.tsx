@@ -1,3 +1,24 @@
+/**
+ * DESIGN DECISION: Main Application Component Architecture
+ * 
+ * App.tsx orchestrates the entire application state and component hierarchy.
+ * This centralized state management approach was chosen over Redux/Context because:
+ * 
+ * 1. Single-user, single-device app (no need for complex state sync)
+ * 2. State is naturally hierarchical (inventory → tasks, ledger → people)
+ * 3. Props drilling is manageable with TypeScript type safety
+ * 4. Simpler debugging (state changes visible in React DevTools)
+ * 
+ * Core Responsibilities:
+ * - Temporal navigation (past/present/future modes)
+ * - localStorage persistence (dual storage with IndexedDB planned)
+ * - AI chat session management
+ * - Google Calendar sync orchestration
+ * - Storage quota monitoring
+ * 
+ * The component maintains separate chat histories per date, enabling contextual
+ * conversations about different days without confusion.
+ */
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { INITIAL_INVENTORY, INITIAL_LEDGER, EMPTY_INVENTORY, EMPTY_LEDGER, GOOGLE_CLIENT_ID } from './constants';
@@ -21,14 +42,45 @@ declare global {
   }
 }
 
+/**
+ * AppProps: Mode-based configuration
+ * DESIGN DECISION: Runtime mode selection vs build-time environments
+ * 
+ * Mode is a runtime prop rather than an environment variable to enable:
+ * - Single deployment serving both demo and live modes
+ * - Instant switching without rebuilds
+ * - User-controlled mode selection from landing page
+ */
 interface AppProps {
   mode: 'demo' | 'live';
   onBack: () => void;
 }
 
+/**
+ * Image Upload Constraints
+ * DESIGN DECISION: Daily upload limits to prevent storage abuse
+ * 
+ * LocalStorage has a ~5MB quota. Without limits, users could hit quota quickly
+ * with photos. 5 images/day balances utility with sustainability.
+ * The compression service reduces each image to ~100-200KB.
+ */
 const MAX_IMAGES_PER_DAY = 5;
-const toDateString = (date: Date) => date.toLocaleDateString('en-CA');
+const toDateString = (date: Date) => date.toLocaleDateString('en-CA'); // YYYY-MM-DD format
 
+/**
+ * getTasksForDate: Task filtering with recurrence expansion
+ * DESIGN DECISION: Client-side recurrence calculation
+ * 
+ * Rather than storing every instance of recurring tasks, we store the rule
+ * and expand it on-demand. This saves storage and enables easy rule modifications.
+ * 
+ * Recurrence logic:
+ * - Tasks with date field: Return if exact match
+ * - Tasks with recurrence but no date: Expand based on rule
+ *   - Daily: Return for all dates
+ *   - Weekly: Check if date's weekday matches rule
+ *   - Monthly: Check if date's day-of-month matches rule
+ */
 const getTasksForDate = (inv: LifeInventory, targetDateStr: string) => {
     const [y, m, d] = targetDateStr.split('-').map(Number);
     const targetDateObj = new Date(y, m - 1, d);
@@ -56,7 +108,55 @@ const getTasksForDate = (inv: LifeInventory, targetDateStr: string) => {
 };
 
 const App: React.FC<AppProps> = ({ mode, onBack }) => {
+  /**
+   * DESIGN DECISION: Temporal Navigation State
+   * 
+   * currentDate is the date being viewed/edited, which may be:
+   * - Past (reflection mode)
+   * - Today (active mode)
+   * - Future (planning mode)
+   * 
+   * This enables "time travel" through schedules while keeping AI context-aware.
+   */
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  
+  /**
+   * DESIGN DECISION: Sync Status Tracking
+   * 
+   * Explicit state machine for Google Calendar operations:
+  /**
+   * DESIGN DECISION: Memoized Service Singleton
+   * 
+   * GoogleCalendarService is memoized to:
+   * 1. Preserve OAuth state across re-renders
+   * 2. Prevent re-initialization of gapi client
+   * 3. Maintain event listener registrations
+   * 
+   * The empty dependency array ensures one instance per App mount.
+   */
+  const calendarService = useMemo(() => new GoogleCalendarService(GOOGLE_CLIENT_ID), []);
+  
+  /**
+   * DESIGN DECISION: Inventory State Initialization
+   * 
+   * Demo mode: Always loads INITIAL_INVENTORY with relative dates
+   * - Ignores localStorage entirely
+   * - Dates calculated relative to "today"
+   * - Immutable (changes don't persist)
+   * 
+   * Live mode: Loads from localStorage or starts empty
+   * - Persists on every change
+   * - Enables Google Calendar sync
+   * - Migrations can happen here (schema version checks)
+   * 
+   * The large demo setup block demonstrates sophisticated date calculations
+   * to create a realistic week spanning past, present, and future.
+   */ * - 'importing': Reading from Google Calendar
+   * - 'exporting': Writing to Google Calendar
+   * - 'signingout': Revoking OAuth tokens
+   * 
+   * This prevents concurrent operations and provides UI feedback.
+   */
   const [syncStatus, setSyncStatus] = useState<'idle' | 'importing' | 'exporting' | 'signingout'>('idle');
   const [showSyncInfo, setShowSyncInfo] = useState<{ type: 'import' | 'export' | 'signout', visible: boolean, error?: string }>({ type: 'import', visible: false });
   const [showImportModal, setShowImportModal] = useState(false);
@@ -159,6 +259,12 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     return EMPTY_INVENTORY;
   });
 
+  /**
+   * DESIGN DECISION: Ledger State Initialization
+   * 
+   * Follows same demo/live pattern as inventory.
+   * Demo ledger includes various relationship statuses to demonstrate the Kinship Debt system.
+   */
   const [ledger, setLedger] = useState<RelationshipLedger>(() => {
     // In demo mode, always load demo data and ignore localStorage
     if (mode === 'demo') {
@@ -171,6 +277,18 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     return EMPTY_LEDGER;
   });
 
+  /**
+   * DESIGN DECISION: AI Memory System
+   * 
+   * Memories are user-specific learned facts that persist across sessions.
+   * In demo mode, sample memories demonstrate:
+   * - Preferences: Personal working styles
+   * - Facts: Important context about relationships
+   * - Decisions: Strategic choices to remember
+   * 
+   * The AI references these memories when making orchestration decisions,
+   * creating a continuously adapting assistant.
+   */
   const [memories, setMemories] = useState<Memory[]>(() => {
       // In demo mode, start with some learned preferences from the week
       if (mode === 'demo') {
@@ -206,6 +324,24 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       return saved ? JSON.parse(saved) : [];
   });
 
+  /**
+   * DESIGN DECISION: Date-Keyed Chat History
+   * 
+   * Chat messages are organized by date (YYYY-MM-DD) rather than a flat timeline.
+   * This structure enables:
+   * 
+   * 1. Contextual conversations: The AI knows which date you're discussing
+   * 2. Efficient loading: Only load today's messages, fetch others on-demand
+   * 3. Storage optimization: Can delete old date ranges to free space
+   * 4. Temporal navigation: View past conversations about specific days
+   * 
+   * Demo mode includes pre-written conversations showing AI capabilities:
+   * - Past dates: Reflection on completed tasks
+   * - Today: Active orchestration in progress
+   * - Future dates: Planning conversations
+   * 
+   * This creates a realistic multi-day narrative for the demo experience.
+   */
   const [allMessages, setAllMessages] = useState<ChatHistory>(() => {
       // In demo mode, always load demo data and ignore localStorage
       if (mode === 'demo') {
@@ -327,6 +463,23 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       return history;
   });
 
+  /**
+   * DESIGN DECISION: Persistence Effect
+   * 
+   * All state changes automatically sync to localStorage (live mode only).
+   * Demo mode explicitly skips persistence to prevent contamination of user data.
+   * 
+   * Why localStorage over IndexedDB for primary storage?
+   * 1. Synchronous API simplifies state management (no async complexity)
+   * 2. Atomic writes prevent partial state corruption
+   * 3. 5MB quota is sufficient for single-user personal data
+   * 4. Universal browser support without polyfills
+   * 
+   * The IndexedDB implementation (db.ts) is prepared for future migration
+   * when features like vector search or offline sync become necessary.
+   * 
+   * Storage stats are updated asynchronously to avoid blocking renders.
+   */
   useEffect(() => {
          // In demo mode, do NOT save to localStorage to avoid polluting live data
          if (mode === 'demo') return;
@@ -446,6 +599,35 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       }
   };
 
+  /**
+   * DESIGN DECISION: AI Tool Executors (Function Calling)
+   * 
+   * The executors object defines the functions the AI can invoke using Google Gemini's
+   * function calling feature. This architecture enables:
+   * 
+   * 1. **Declarative AI actions**: The AI requests actions via structured JSON,
+   *    which we validate and execute safely on the client.
+   * 
+   * 2. **Security boundaries**: All functions have validation logic. The AI cannot
+   *    execute arbitrary code, only pre-defined, validated operations.
+   * 
+   * 3. **Temporal safety**: Functions like proposeOrchestration validate date constraints
+   *    (e.g., cannot orchestrate past dates) regardless of AI intent.
+   * 
+   * 4. **State access via refs**: Using refs (ledgerRef, inventoryRef) ensures
+   *    executors always access current state, even during async operations.
+   * 
+   * Key executors:
+   * - get_relationship_status: Returns current ledger for Kinship Debt calculations
+   * - get_life_context: Returns tasks for a specific date (with recurrence expansion)
+   * - propose_orchestration: Generates a complete daily schedule proposal
+   * - update_relationship_status: Modifies people in the ledger
+   * - add_task/delete_task: Task CRUD operations
+   * - move_tasks: Multi-task rescheduling for overload management
+   * - save_memory: Persists AI learning for future sessions
+   * 
+   * The AI's system prompt teaches it when and how to use each executor.
+   */
   const executors = {
     getRelationshipStatus: async () => ledgerRef.current,
     getLifeContext: async (args?: { date?: string }) => getTasksForDate(inventoryRef.current, args?.date || toDateString(currentDate)),
