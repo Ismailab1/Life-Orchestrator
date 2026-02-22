@@ -24,7 +24,7 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
               {isPrivacy ? 'Privacy Policy' : 'Terms of Service'}
             </h1>
             <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-1">
-              Last Updated: February 20, 2026
+              Last Updated: February 22, 2026
             </p>
           </div>
           <button 
@@ -45,10 +45,18 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
               <section>
                 <h2 className="text-xl font-bold text-indigo-400">1. Data Storage & Local Sovereignty</h2>
                 <p>
-                  Life Orchestrator is designed as a "Local-First" application with zero server backend. All persistent data—including your Kinship Ledger (contacts with relationship notes and priority ratings), Life Inventory (tasks with duration estimates), conversation history, and Memory Bank (saved preferences)—are stored exclusively within your browser's <strong>Local Storage</strong> (5MB quota). We do not maintain any external databases, analytics services, or tracking pixels that store your personal identifiers or life data.
+                  Life Orchestrator is designed as a "Local-First" application with zero server backend. All persistent data is stored exclusively within your browser's <strong>Local Storage</strong> (5MB quota). This includes:
                 </p>
+                <ul className="list-disc pl-6 space-y-2 mt-3">
+                  <li><strong>Kinship Ledger:</strong> Contact names, email addresses, relationship notes, priority ratings (1-5 scale), status assessments (Stable/Needs Attention/Critical), relationship categories, and timestamps of last contact</li>
+                  <li><strong>Life Inventory:</strong> Task descriptions, duration estimates, deadlines, and calendar sync metadata (Google Calendar event IDs)</li>
+                  <li><strong>Conversation History:</strong> All chat messages exchanged with the AI, including personal context about your schedule, relationships, and life circumstances</li>
+                  <li><strong>Uploaded Images:</strong> Compressed images you attach to conversations (automatically reduced to fit storage limits)</li>
+                  <li><strong>Memory Bank:</strong> AI-learned preferences about your working style, relationship patterns, and scheduling preferences (max 100 entries)</li>
+                  <li><strong>Calendar Event Data:</strong> When importing from Google Calendar, attendee email addresses, names, response statuses, and event metadata are cached locally</li>
+                </ul>
                 <p className="mt-4">
-                  Your data remains on your device at all times. Clearing your browser's site data through Settings → Privacy will permanently delete all Life Orchestrator data from your device.
+                  <strong>We do not maintain any external databases, analytics services, or tracking pixels.</strong> Your data remains on your device at all times. Clearing your browser's site data through Settings → Privacy will permanently delete all Life Orchestrator data from your device.
                 </p>
               </section>
 
@@ -56,10 +64,13 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
                 <h2 className="text-xl font-bold text-indigo-400">2. Third-Party Services & Data Transmission</h2>
                 <p>To provide AI-powered orchestration, we interact with the following third-party services:</p>
                 <ul className="list-disc pl-6 space-y-2">
-                  <li><strong>Google Gemini 2.5 Pro API:</strong> Your conversation messages, uploaded images, and context about your tasks/relationships are sent to Google's Gemini models for real-time reasoning and orchestration proposals. This data is transmitted securely via HTTPS. Google processes this data according to their <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline">Gemini API Terms of Service</a>. We do not store conversation logs on any server—all history remains in your browser's localStorage.</li>
-                  <li><strong>Google Calendar API (Optional):</strong> If you choose to connect your Google Calendar, we fetch your event data via OAuth 2.0 to identify scheduling conflicts ("Fixed" anchors). Calendar data is processed in-memory during your session and is never stored in our systems. When you export orchestrations back to Google Calendar, event creation is performed directly between your browser and Google's servers.</li>
+                  <li><strong>Google Gemini 2.5 Pro API:</strong> Your conversation messages, uploaded images, and context about your tasks/relationships <strong>including names, email addresses, personal notes, and relationship status assessments</strong> are sent to Google's Gemini models for real-time reasoning and orchestration proposals. This data is transmitted securely via HTTPS. Google processes this data according to their <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline">Gemini API Terms of Service</a>. We do not store conversation logs on any server—all history remains in your browser's localStorage.</li>
+                  <li><strong>Google Calendar API (Optional):</strong> If you choose to connect your Google Calendar, we fetch your event data via OAuth 2.0 to identify scheduling conflicts ("Fixed" anchors). <strong>When importing events, we extract attendee email addresses and names to populate your Kinship Ledger.</strong> Calendar data is processed in-memory during your session and cached in localStorage. When you export orchestrations back to Google Calendar, event creation is performed directly between your browser and Google's servers.</li>
                   <li><strong>Google OAuth 2.0:</strong> Calendar integration uses Google's OAuth flow. Your access tokens are stored only in your browser's localStorage (never on our servers) and can be revoked at any time through your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline">Google Account permissions</a>.</li>
                 </ul>
+                <p className="mt-4">
+                  <strong>Important:</strong> When you import people from calendar events, their email addresses and names become part of your Kinship Ledger and are included in AI context when generating orchestrations or relationship recommendations.
+                </p>
               </section>
 
               <section>
@@ -75,6 +86,23 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
                 </ul>
                 <p className="mt-4">
                   The AI processes your input to generate temporal-aware orchestrations (Reflection/Active/Planning modes), capacity warnings when daily workload exceeds 10 hours, and relationship completion verification when Kinship Debt thresholds are crossed.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-xl font-bold text-indigo-400">3a. Calendar People Import Feature</h2>
+                <p>
+                  When you import events from Google Calendar, you have the option to add event attendees and organizers to your Kinship Ledger. This feature:
+                </p>
+                <ul className="list-disc pl-6 space-y-2 mt-3">
+                  <li><strong>Extracts email addresses and names</strong> from event attendee lists and organizer fields</li>
+                  <li><strong>Filters out resource calendars</strong> (conference rooms, equipment) but may not catch all non-human attendees</li>
+                  <li><strong>Filters out yourself</strong> from import suggestions based on the "self" flag in Google Calendar data</li>
+                  <li><strong>Stores this contact information</strong> permanently in your browser's localStorage as part of your Kinship Ledger</li>
+                  <li><strong>Includes this data in AI context</strong> when you ask for relationship recommendations or orchestrations</li>
+                </ul>
+                <p className="mt-4">
+                  <strong>You have full control:</strong> Each person must be individually added via "Add" buttons in the event detail view. No bulk imports occur without your explicit action. You can delete imported contacts from the Kinship Ledger at any time. <strong>Be mindful that adding someone to your ledger means their email address and any notes you add about them will be transmitted to Google's Gemini API when relevant to orchestration requests.</strong>
                 </p>
               </section>
 
@@ -103,9 +131,11 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
                   <li>OAuth tokens are stored with httpOnly and secure flags where supported by browser APIs</li>
                   <li>We do not transmit localStorage data to any servers we control</li>
                   <li>No third-party analytics or tracking scripts are embedded in the application</li>
+                  <li>Images are automatically compressed before storage to prevent exceeding browser quotas</li>
+                  <li>Calendar attendee email addresses are filtered to exclude resource calendars (conference rooms, equipment)</li>
                 </ul>
                 <p className="mt-4">
-                  <strong>Important:</strong> Because data is stored in localStorage, anyone with physical access to your device and browser can potentially access your Life Orchestrator data. Use device-level security (lock screens, encryption) to protect your information.
+                  <strong>Important Security Warning:</strong> Because sensitive data (contact information, relationship assessments, personal notes, email addresses) is stored in localStorage, anyone with physical access to your device and browser can potentially access your Life Orchestrator data including names, emails, and personal notes about relationships. <strong>Use device-level security (lock screens, full-disk encryption, browser master passwords) to protect this sensitive information.</strong> Consider this when using the app on shared or public devices.
                 </p>
               </section>
 
@@ -168,7 +198,10 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
               <section>
                 <h2 className="text-xl font-bold text-indigo-400">5. Relationship Tracking & Kinship Debt</h2>
                 <p>
-                  The Kinship Ledger calculates "Kinship Debt" using Priority × Days Since Last Contact. Thresholds (&gt;5 = Needs Attention, &gt;10 = Critical) are guidelines, not prescriptive rules. The quality of relationships cannot be reduced to mathematical formulas. Use the AI's relationship insights as suggestions, not mandates, and always apply your own judgment about when and how to connect with others.
+                  The Kinship Ledger calculates "Kinship Debt" using Priority × Days Since Last Contact. Thresholds (&gt;5 = Needs Attention, &gt;10 = Critical) are guidelines, not prescriptive rules. <strong>The quality of relationships cannot be reduced to mathematical formulas.</strong> Use the AI's relationship insights as suggestions, not mandates, and always apply your own judgment about when and how to connect with others.
+                </p>
+                <p className="mt-4">
+                  <strong>Sensitive Data Warning:</strong> The Kinship Ledger stores personal assessments including priority ratings, status levels (Stable/Needs Attention/Critical), and private notes about relationships. When you import people from calendar events, their contact information is automatically added. This data is highly sensitive and personal. The AI receives this context to generate relationship recommendations, which means your personal assessments and notes are transmitted to Google's Gemini API.
                 </p>
               </section>
 
@@ -206,10 +239,13 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
                 </p>
                 <ul className="list-disc pl-6 space-y-1">
                   <li>Verify all AI-generated schedules before committing to events</li>
-                  <li>Maintain backups of critical data (the app provides export functionality)</li>
-                  <li>Use device-level security (lock screens, encryption) to protect localStorage data</li>
+                  <li>Maintain backups of critical data (the app provides export functionality via Storage Manager)</li>
+                  <li>Use device-level security (lock screens, full-disk encryption, browser master passwords) to protect sensitive localStorage data including contact information and personal notes</li>
                   <li>Not use the service for emergency situations or time-critical medical/legal decisions</li>
                   <li>Regularly review relationship recommendations with cultural and personal context</li>
+                  <li>Be mindful that calendar attendee email addresses and names are extracted and stored when importing events</li>
+                  <li>Understand that your relationship notes, priority assessments, and contact information are transmitted to Google's Gemini API for AI processing</li>
+                  <li>Not store highly confidential information (passwords, financial data, medical records) in task notes or relationship fields</li>
                 </ul>
               </section>
 
