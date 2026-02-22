@@ -43,9 +43,10 @@ interface Props {
   proposal: OrchestrationProposal;
   onAccept: () => void;
   onReject: () => void;
+  isProcessing?: boolean;
 }
 
-export const OrchestrationProposalView: React.FC<Props> = ({ proposal, onAccept, onReject }) => {
+export const OrchestrationProposalView: React.FC<Props> = ({ proposal, onAccept, onReject, isProcessing = false }) => {
   return (
     <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-5 text-white shadow-lg border border-slate-700 animate-fade-in w-full max-w-2xl mx-auto my-2">
       <div className="flex items-center justify-between mb-4">
@@ -87,15 +88,33 @@ export const OrchestrationProposalView: React.FC<Props> = ({ proposal, onAccept,
         <div className="flex space-x-3 mt-4 pt-2 border-t border-slate-700/50">
             <button 
                 onClick={onAccept}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg font-medium text-sm transition-colors shadow-sm"
+                disabled={isProcessing}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 disabled:cursor-not-allowed text-white py-2 rounded-lg font-medium text-sm transition-colors shadow-sm flex items-center justify-center gap-2"
             >
-                Confirm Schedule
+                {isProcessing ? (
+                    <>
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Processing...</span>
+                    </>
+                ) : 'Confirm Schedule'}
             </button>
             <button 
                 onClick={onReject}
-                className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm"
+                disabled={isProcessing}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:cursor-not-allowed text-slate-200 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm flex items-center justify-center gap-2"
             >
-                Revise
+                {isProcessing ? (
+                    <>
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Processing...</span>
+                    </>
+                ) : 'Revise'}
             </button>
         </div>
       </div>

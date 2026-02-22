@@ -57,6 +57,7 @@ interface Props {
   onAcceptContact: (person: Person) => void;
   onRejectContact: (person: Person) => void;
   storageStats: StorageStats;
+  processingProposal?: boolean;
 }
 
 export const ChatInterface: React.FC<Props> = ({ 
@@ -72,7 +73,8 @@ export const ChatInterface: React.FC<Props> = ({
     onRejectProposal,
     onAcceptContact,
     onRejectContact,
-    storageStats
+    storageStats,
+    processingProposal = false
 }) => {
   const [input, setInput] = useState('');
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
@@ -243,7 +245,7 @@ export const ChatInterface: React.FC<Props> = ({
                     </div>
                   </div>
                 )}
-                {msg.proposal && <div className="w-full max-w-2xl mt-4"><OrchestrationProposalView proposal={msg.proposal} onAccept={() => onAcceptProposal(msg.proposal!)} onReject={() => onRejectProposal(msg.proposal!)} /></div>}
+                {msg.proposal && <div className="w-full max-w-2xl mt-4"><OrchestrationProposalView proposal={msg.proposal} onAccept={() => onAcceptProposal(msg.proposal!)} onReject={() => onRejectProposal(msg.proposal!)} isProcessing={processingProposal} /></div>}
                 {msg.contactProposals && msg.contactProposals.map((p, i) => (
                     <div className="mt-4" key={i}><ContactProposalView person={p} onAccept={() => onAcceptContact(p)} onReject={() => onRejectContact(p)} /></div>
                 ))}

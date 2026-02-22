@@ -22,7 +22,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { INITIAL_INVENTORY, INITIAL_LEDGER, EMPTY_INVENTORY, EMPTY_LEDGER, GOOGLE_CLIENT_ID } from './constants';
-import { LifeInventory, RelationshipLedger, ChatMessage, OrchestrationProposal, UpdateRelationshipArgs, Person, Task, Memory, ChatHistory, StorageStats } from './types';
+import { LifeInventory, RelationshipLedger, ChatMessage, OrchestrationProposal, UpdateRelationshipArgs, Person, Task, Memory, ChatHistory, StorageStats, GoogleCalendarEvent } from './types';
 import { KinshipLedgerView } from './components/KinshipLedger';
 import { CareerInventoryView } from './components/CareerInventory';
 import { ChatInterface } from './components/ChatInterface';
@@ -41,6 +41,205 @@ declare global {
     gapi: any;
   }
 }
+
+/**
+ * Mock Calendar Events for Demo Mode
+ * DESIGN DECISION: Showcase all badge types and event metadata
+ * 
+ * This function generates realistic Google Calendar events that demonstrate:
+ * - Recurring events (daily standup, weekly 1-on-1)
+ * - Meetings with multiple attendees
+ * - Video conference links (Google Meet)
+ * - Physical and virtual locations
+ * - Various durations (15m to 2h)
+ * - Events organized by others
+ * - All-day events
+ * 
+ * Events are generated relative to the date range requested to maintain
+ * temporal consistency as users navigate the demo.
+ */
+const getMockCalendarEvents = (startDate: Date, endDate: Date): Promise<GoogleCalendarEvent[]> => {
+  const events: GoogleCalendarEvent[] = [];
+  
+  // Helper to create dates within the range
+  const getDateInRange = (daysOffset: number, hour: number, minute: number = 0): string => {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + daysOffset);
+    date.setHours(hour, minute, 0, 0);
+    return date.toISOString();
+  };
+  
+  const isInRange = (daysOffset: number): boolean => {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + daysOffset);
+    return date >= startDate && date <= endDate;
+  };
+
+  // Event 1: Daily Standup (Recurring + Video + Meeting)
+  if (isInRange(0)) {
+    events.push({
+      id: 'demo_event_1',
+      summary: '🚀 Daily Team Standup',
+      description: 'Quick sync on progress, blockers, and priorities for the day.',
+      start: { dateTime: getDateInRange(0, 9, 30) },
+      end: { dateTime: getDateInRange(0, 10, 0) },
+      recurrence: ['RRULE:FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR'],
+      attendees: [
+        { email: 'you@example.com', displayName: 'You', responseStatus: 'accepted', self: true },
+        { email: 'sarah@example.com', displayName: 'Sarah Chen', responseStatus: 'accepted' },
+        { email: 'james@example.com', displayName: 'James Wilson', responseStatus: 'accepted' },
+        { email: 'priya@example.com', displayName: 'Priya Patel', responseStatus: 'tentative' },
+      ],
+      conferenceData: {
+        entryPoints: [
+          { entryPointType: 'video', uri: 'https://meet.google.com/abc-defg-hij', label: 'meet.google.com/abc-defg-hij' },
+        ],
+        conferenceSolution: { name: 'Google Meet' },
+      },
+      organizer: { email: 'sarah@example.com', displayName: 'Sarah Chen', self: false },
+    });
+  }
+
+  // Event 2: Client Meeting (Video + Location + Long Duration)
+  if (isInRange(0)) {
+    events.push({
+      id: 'demo_event_2',
+      summary: '💼 Q1 Strategy Review - Acme Corp',
+      description: 'Quarterly business review with Acme Corp stakeholders.\n\nAgenda:\n1. Q4 performance recap\n2. Q1 goals alignment\n3. Budget discussion\n4. Next steps',
+      location: 'Conference Room B, 5th Floor',
+      start: { dateTime: getDateInRange(0, 14, 0) },
+      end: { dateTime: getDateInRange(0, 16, 0) },
+      attendees: [
+        { email: 'you@example.com', displayName: 'You', responseStatus: 'accepted', self: true },
+        { email: 'john.smith@acmecorp.com', displayName: 'John Smith', responseStatus: 'accepted' },
+        { email: 'lisa.jones@acmecorp.com', displayName: 'Lisa Jones', responseStatus: 'accepted' },
+        { email: 'david@example.com', displayName: 'David Lee', responseStatus: 'accepted' },
+      ],
+      conferenceData: {
+        entryPoints: [
+          { entryPointType: 'video', uri: 'https://meet.google.com/xyz-pqrs-tuv', label: 'meet.google.com/xyz-pqrs-tuv' },
+        ],
+        conferenceSolution: { name: 'Google Meet' },
+      },
+      organizer: { email: 'john.smith@acmecorp.com', displayName: 'John Smith', self: false },
+    });
+  }
+
+  // Event 3: Coffee Chat (Physical Location + Short Duration)
+  if (isInRange(1)) {
+    events.push({
+      id: 'demo_event_3',
+      summary: '☕ Coffee with Alex',
+      description: 'Casual catch-up to discuss career growth and mentorship.',
+      location: 'Blue Bottle Coffee, Downtown',
+      start: { dateTime: getDateInRange(1, 10, 0) },
+      end: { dateTime: getDateInRange(1, 10, 45) },
+      attendees: [
+        { email: 'you@example.com', displayName: 'You', responseStatus: 'accepted', self: true },
+        { email: 'alex.rivera@example.com', displayName: 'Alex Rivera', responseStatus: 'accepted' },
+      ],
+      organizer: { email: 'you@example.com', displayName: 'You', self: true },
+    });
+  }
+
+  // Event 4: Weekly 1-on-1 (Recurring Weekly + Video)
+  if (isInRange(2)) {
+    events.push({
+      id: 'demo_event_4',
+      summary: '👥 Weekly 1:1 with Manager',
+      description: 'Regular check-in to discuss progress, challenges, and development.',
+      start: { dateTime: getDateInRange(2, 15, 30) },
+      end: { dateTime: getDateInRange(2, 16, 0) },
+      recurrence: ['RRULE:FREQ=WEEKLY;BYDAY=WE'],
+      attendees: [
+        { email: 'you@example.com', displayName: 'You', responseStatus: 'accepted', self: true },
+        { email: 'manager@example.com', displayName: 'Maria Garcia', responseStatus: 'accepted', organizer: true },
+      ],
+      conferenceData: {
+        entryPoints: [
+          { entryPointType: 'video', uri: 'https://meet.google.com/mgr-weekly-sync', label: 'meet.google.com/mgr-weekly-sync' },
+        ],
+        conferenceSolution: { name: 'Google Meet' },
+      },
+      organizer: { email: 'manager@example.com', displayName: 'Maria Garcia', self: false },
+    });
+  }
+
+  // Event 5: All-Day Event (Conference)
+  if (isInRange(3)) {
+    events.push({
+      id: 'demo_event_5',
+      summary: '🎤 Tech Conference 2026',
+      description: 'Annual technology conference with keynotes, workshops, and networking.',
+      location: 'Convention Center, Hall A',
+      start: { date: new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] },
+      end: { date: new Date(startDate.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] },
+      organizer: { email: 'events@techconf.com', displayName: 'Tech Conference Team', self: false },
+    });
+  }
+
+  // Event 6: Team Workshop (Long Meeting + Many Attendees)
+  if (isInRange(4)) {
+    events.push({
+      id: 'demo_event_6',
+      summary: '🎨 Design Sprint Workshop',
+      description: 'Collaborative design sprint to brainstorm and prototype new features.\n\nBring your ideas!',
+      location: 'Innovation Lab, Building 2',
+      start: { dateTime: getDateInRange(4, 13, 0) },
+      end: { dateTime: getDateInRange(4, 17, 0) },
+      attendees: [
+        { email: 'you@example.com', displayName: 'You', responseStatus: 'accepted', self: true },
+        { email: 'designer1@example.com', displayName: 'Emma Thompson', responseStatus: 'accepted' },
+        { email: 'designer2@example.com', displayName: 'Ryan Kim', responseStatus: 'accepted' },
+        { email: 'pm@example.com', displayName: 'Sophie Martinez', responseStatus: 'accepted', organizer: true },
+        { email: 'eng1@example.com', displayName: 'Michael Brown', responseStatus: 'declined' },
+        { email: 'eng2@example.com', displayName: 'Nina Patel', responseStatus: 'needsAction' },
+      ],
+      conferenceData: {
+        entryPoints: [
+          { entryPointType: 'video', uri: 'https://zoom.us/j/123456789', label: 'Zoom Meeting' },
+        ],
+        conferenceSolution: { name: 'Zoom' },
+      },
+      organizer: { email: 'pm@example.com', displayName: 'Sophie Martinez', self: false },
+    });
+  }
+
+  // Event 7: Quick Sync (No attendees, just a reminder)
+  if (isInRange(5)) {
+    events.push({
+      id: 'demo_event_7',
+      summary: '📝 Submit Monthly Report',
+      description: 'Deadline to submit the monthly progress report to leadership.',
+      start: { dateTime: getDateInRange(5, 17, 0) },
+      end: { dateTime: getDateInRange(5, 17, 30) },
+      organizer: { email: 'you@example.com', displayName: 'You', self: true },
+    });
+  }
+
+  // Event 8: Recurring Monthly Team Lunch
+  if (isInRange(6)) {
+    events.push({
+      id: 'demo_event_8',
+      summary: '🍕 Monthly Team Lunch',
+      description: 'Team bonding over food! This month: Italian cuisine.',
+      location: 'Bella Italia Restaurant',
+      start: { dateTime: getDateInRange(6, 12, 0) },
+      end: { dateTime: getDateInRange(6, 13, 0) },
+      recurrence: ['RRULE:FREQ=MONTHLY;BYMONTHDAY=28'],
+      attendees: [
+        { email: 'you@example.com', displayName: 'You', responseStatus: 'accepted', self: true },
+        { email: 'sarah@example.com', displayName: 'Sarah Chen', responseStatus: 'accepted' },
+        { email: 'james@example.com', displayName: 'James Wilson', responseStatus: 'accepted' },
+        { email: 'priya@example.com', displayName: 'Priya Patel', responseStatus: 'accepted' },
+        { email: 'david@example.com', displayName: 'David Lee', responseStatus: 'tentative' },
+      ],
+      organizer: { email: 'sarah@example.com', displayName: 'Sarah Chen', self: false },
+    });
+  }
+
+  return Promise.resolve(events);
+};
 
 /**
  * AppProps: Mode-based configuration
@@ -151,7 +350,14 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
    * 
    * The large demo setup block demonstrates sophisticated date calculations
    * to create a realistic week spanning past, present, and future.
-   */ * - 'importing': Reading from Google Calendar
+   */
+  
+  /**
+   * DESIGN DECISION: Sync Status State
+   * 
+   * Tracks Google Calendar sync operations:
+   * - 'idle': No operation in progress
+   * - 'importing': Reading from Google Calendar
    * - 'exporting': Writing to Google Calendar
    * - 'signingout': Revoking OAuth tokens
    * 
@@ -171,8 +377,6 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   const toast = useToast();
   // Determine initial state based on tutorial completion
   const isFirstRun = !localStorage.getItem('life_tutorial_completed');
-
-  const calendarService = useMemo(() => new GoogleCalendarService(GOOGLE_CLIENT_ID), []);
   
   const [inventory, setInventory] = useState<LifeInventory>(() => {
     // In demo mode, always load demo data and ignore localStorage
@@ -518,6 +722,9 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   const pendingContactRef = useRef<Person | null>(null);
   const initializedDateRef = useRef<string>('');
   const justCompletedTutorialRef = useRef(false);
+  // Orchestration proposal management
+  const lastProposalTimeRef = useRef<number>(0);
+  const [processingProposal, setProcessingProposal] = useState(false);
 
   const dailyInventory = useMemo(() => getTasksForDate(inventory, toDateString(currentDate)), [inventory, currentDate]);
   const messages = useMemo(() => allMessages[toDateString(currentDate)] || [], [allMessages, currentDate]);
@@ -548,20 +755,23 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       await geminiService.sendMessageStream(text, compressedMedia, executors, (streamText, streamThought) => {
           updateCurrentDayMessages(prev => {
               const newArr = [...prev]; const last = newArr[newArr.length - 1];
-              if (last && last.role === 'model' && last.id === modelMsgId) { last.text = streamText; last.thought = streamThought; }
+              if (last && last.role === 'model' && last.id === modelMsgId) {
+                  last.text = streamText;
+                  last.thought = streamThought;
+                  // Show proposals immediately during streaming
+                  if (pendingProposalRef.current && !last.proposal) {
+                      last.proposal = pendingProposalRef.current;
+                      pendingProposalRef.current = null;
+                  }
+                  if (pendingContactRef.current && !last.contactProposals) {
+                      last.contactProposals = [pendingContactRef.current];
+                      pendingContactRef.current = null;
+                  }
+              }
               return newArr;
           });
           if (streamText || streamThought) setIsLoading(false);
       }, getModeTime());
-      updateCurrentDayMessages(prev => {
-          const newArr = [...prev]; const last = newArr[newArr.length - 1];
-          if (last && last.role === 'model' && last.id === modelMsgId) {
-              if (pendingProposalRef.current) last.proposal = pendingProposalRef.current;
-              if (pendingContactRef.current) last.contactProposals = [pendingContactRef.current];
-          }
-          pendingProposalRef.current = null; pendingContactRef.current = null;
-          return newArr;
-      });
     } catch (error: any) { 
         console.error("SendMessage Error:", error);
         alert(`Failed to send message: ${error.message || "Unknown error"}`);
@@ -642,8 +852,32 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
         return "❌ Cannot orchestrate past dates. Past dates are for reflection only. Please navigate to today or a future date to create new orchestrations.";
       }
       
+      // Debounce protection
+      const now = Date.now();
+      if (now - lastProposalTimeRef.current < 5000) {
+        return "⏳ Please wait a moment before requesting another orchestration. The previous proposal is still being processed.";
+      }
+      lastProposalTimeRef.current = now;
+      
+      // Auto-dismiss old proposals for this date
+      const hadExistingProposal = messages.some(msg => msg.proposal);
+      updateCurrentDayMessages(prev => 
+        prev.map(msg => {
+          if (msg.proposal) {
+            return { 
+              ...msg, 
+              proposal: undefined,
+              thought: (msg.thought || '') + ' [Previous proposal auto-dismissed due to new orchestration request]'
+            };
+          }
+          return msg;
+        })
+      );
+      
       pendingProposalRef.current = newProposal;
-      return "Proposal generated.";
+      return hadExistingProposal 
+        ? "✅ New proposal generated. Previous proposal has been replaced." 
+        : "✅ Proposal generated.";
     },
     updateRelationshipStatus: async (args: UpdateRelationshipArgs) => {
         const currentLedger = ledgerRef.current;
@@ -929,28 +1163,71 @@ ${memoryContext}`);
       updateCurrentDayMessages(prev => prev.map(msg => msg.contactProposals?.includes(person) ? { ...msg, contactProposals: undefined } : msg)); 
   };
   
-  const acceptProposal = (proposal: OrchestrationProposal) => {
-    setInventory(prev => {
-        const todayStr = toDateString(currentDate);
-        const fixed = prev.fixed.filter(t => t.date !== todayStr);
-        const flexible = prev.flexible.filter(t => t.date !== todayStr);
-        const newFixed: Task[] = [];
-        const newFlexible: Task[] = [];
-        proposal.schedule.forEach(t => {
-            const taskWithDate = { ...t, date: todayStr };
-            if (t.type === 'fixed') newFixed.push(taskWithDate);
-            else newFlexible.push(taskWithDate);
+  const acceptProposal = async (proposal: OrchestrationProposal) => {
+    // Race condition guard
+    if (processingProposal) return;
+    setProcessingProposal(true);
+    
+    try {
+      // Date validation: ensure proposal is for current viewing date
+      const todayStr = toDateString(currentDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const viewDate = new Date(currentDate);
+      viewDate.setHours(0, 0, 0, 0);
+      
+      if (viewDate < today) {
+        toast.showError('Cannot accept proposals for past dates');
+        setProcessingProposal(false);
+        return;
+      }
+      
+      // Save current state for potential rollback
+      const previousInventory = inventory;
+      
+      try {
+        setInventory(prev => {
+            const fixed = prev.fixed.filter(t => t.date !== todayStr);
+            const flexible = prev.flexible.filter(t => t.date !== todayStr);
+            const newFixed: Task[] = [];
+            const newFlexible: Task[] = [];
+            proposal.schedule.forEach(t => {
+                const taskWithDate = { ...t, date: todayStr };
+                if (t.type === 'fixed') newFixed.push(taskWithDate);
+                else newFlexible.push(taskWithDate);
+            });
+            return { fixed: [...fixed, ...newFixed], flexible: [...flexible, ...newFlexible] };
         });
-        return { fixed: [...fixed, ...newFixed], flexible: [...flexible, ...newFlexible] };
-    });
-    handleSendMessage(`I accept the orchestration proposal for today. The timeline looks solid: \n\n${proposal.optimized_timeline}`, null);
-    updateCurrentDayMessages(prev => prev.map(msg => msg.proposal === proposal ? { ...msg, proposal: undefined } : msg));
+        
+        handleSendMessage(`I accept the orchestration proposal for today. The timeline looks solid: \n\n${proposal.optimized_timeline}`, null);
+        updateCurrentDayMessages(prev => prev.map(msg => msg.proposal === proposal ? { ...msg, proposal: undefined } : msg));
+      } catch (error) {
+        // Rollback on error
+        console.error('Error accepting proposal:', error);
+        setInventory(previousInventory);
+        toast.showError('Failed to apply orchestration. Changes have been reverted.');
+      }
+    } finally {
+      setProcessingProposal(false);
+    }
   };
 
   const handleExportToGoogle = async () => {
     if (mode === 'demo') {
         setSyncStatus('exporting');
-        setTimeout(() => { setSyncStatus('idle'); setShowSyncInfo({ type: 'export', visible: true }); }, 1800);
+        const tasksForDate = [...dailyInventory.fixed, ...dailyInventory.flexible];
+        const taskCount = tasksForDate.length;
+        const taskTitles = tasksForDate.slice(0, 3).map(t => `• ${t.title}`).join('\n');
+        const more = taskCount > 3 ? `\n... and ${taskCount - 3} more` : '';
+        
+        setTimeout(() => {
+            setSyncStatus('idle');
+            setShowSyncInfo({ type: 'export', visible: true });
+            toast.addToast(
+                `Demo: Would export ${taskCount} task${taskCount !== 1 ? 's' : ''} to Google Calendar:\n\n${taskTitles}${more}`,
+                'success'
+            );
+        }, 1800);
         return;
     }
     setSyncStatus('exporting');
@@ -970,7 +1247,21 @@ ${memoryContext}`);
     } catch (error: any) { setSyncStatus('idle'); setShowSyncInfo({ type: 'export', visible: true, error: error.message }); }
   };
 
-  const handleImportSelected = (tasks: Task[]) => {
+  const handleImportSelected = (tasks: Task[], importedPeopleCount: number) => {
+    // Dismiss existing proposals when importing
+    updateCurrentDayMessages(prev => 
+      prev.map(msg => {
+        if (msg.proposal) {
+          return { 
+            ...msg, 
+            proposal: undefined,
+            thought: (msg.thought || '') + ' [Proposal auto-dismissed due to calendar import]'
+          };
+        }
+        return msg;
+      })
+    );
+    
     setInventory(prev => {
         const existingGcalIds = new Set(prev.fixed.map(t => t.gcal_id).filter(id => !!id));
         const existingRecurringIds = new Set(prev.fixed.map(t => t.gcal_recurring_id).filter(id => !!id));
@@ -978,7 +1269,19 @@ ${memoryContext}`);
         return { ...prev, fixed: [...prev.fixed, ...filteredNew] };
     });
     setShowImportModal(false); setShowSyncInfo({ type: 'import', visible: true });
-    if (tasks.length > 0) handleSendMessage(`I've just imported ${tasks.length} specific events from my Google Calendar. Please analyze these anchors and re-orchestrate if there are better ways to flow my days.`, null);
+    
+    // Notify AI about both events and people imported
+    if (tasks.length > 0 || importedPeopleCount > 0) {
+      let message = '';
+      if (tasks.length > 0 && importedPeopleCount > 0) {
+        message = `I've just imported ${tasks.length} specific event${tasks.length === 1 ? '' : 's'} from my Google Calendar and added ${importedPeopleCount} new ${importedPeopleCount === 1 ? 'person' : 'people'} to my Kinship Ledger from the event attendees. Please analyze these anchors and connections, and re-orchestrate if there are better ways to flow my days while maintaining these relationships.`;
+      } else if (tasks.length > 0) {
+        message = `I've just imported ${tasks.length} specific event${tasks.length === 1 ? '' : 's'} from my Google Calendar. Please analyze these anchors and re-orchestrate if there are better ways to flow my days.`;
+      } else if (importedPeopleCount > 0) {
+        message = `I've added ${importedPeopleCount} new ${importedPeopleCount === 1 ? 'person' : 'people'} to my Kinship Ledger from calendar events. Please check if I need to reach out to ${importedPeopleCount === 1 ? 'them' : 'anyone'} soon.`;
+      }
+      handleSendMessage(message, null);
+    }
   };
 
   const handleTutorialComplete = async () => {
@@ -1016,7 +1319,24 @@ ${memoryContext}`);
     <div className="h-dvh w-full flex flex-col bg-slate-100 text-slate-800 font-sans overflow-hidden">
       <Toast toasts={toast.toasts} onRemove={toast.removeToast} />
       {showTutorial && <TutorialOverlay isDemo={mode === 'demo'} onComplete={handleTutorialComplete} onSkip={handleTutorialSkip} />}
-      {showImportModal && <CalendarImportModal initialDate={currentDate} onCancel={() => setShowImportModal(false)} onImport={handleImportSelected} fetchEvents={(start, end) => calendarService.listEvents(start, end)} />}
+      {showImportModal && (
+        <CalendarImportModal 
+          initialDate={currentDate} 
+          onCancel={() => setShowImportModal(false)} 
+          onImport={handleImportSelected} 
+          fetchEvents={mode === 'demo' 
+            ? (start, end) => getMockCalendarEvents(start, end)
+            : (start, end) => calendarService.listEvents(start, end)
+          }
+          convertEventToTask={(event) => calendarService.convertEventToTask(event)}
+          getRecurrencePattern={(recurrence) => calendarService.getRecurrencePattern(recurrence)}
+          existingLedger={ledger}
+          onImportPerson={(person) => {
+            handleAddPerson(person);
+            toast.showSuccess(`Added ${person.name} to Kinship Ledger!`);
+          }}
+        />
+      )}
       {showStorageManager && <StorageManager stats={storageStats} onClose={() => setShowStorageManager(false)} onClearDate={handleClearDateHistory} onClearAllHistory={handleClearAllHistory} />}
 
       <header className="bg-white border-b border-slate-200 flex-none z-20 relative">
@@ -1087,9 +1407,21 @@ ${memoryContext}`);
                 isLoading={isLoading}
                 isStreaming={isStreaming}
                 onAcceptProposal={acceptProposal} 
-                onRejectProposal={() => {}} 
+                onRejectProposal={async (proposal) => {
+                  if (processingProposal) return;
+                  setProcessingProposal(true);
+                  try {
+                    handleSendMessage(`I'd like to revise this orchestration proposal. Here's what I'm thinking: [User provides feedback on what to change]`, null);
+                    updateCurrentDayMessages(prev => prev.map(msg => 
+                      msg.proposal === proposal ? { ...msg, proposal: undefined } : msg
+                    ));
+                  } finally {
+                    setProcessingProposal(false);
+                  }
+                }}
                 onAcceptContact={acceptContact} 
-                onRejectContact={rejectContact} 
+                onRejectContact={rejectContact}
+                processingProposal={processingProposal} 
                 storageStats={storageStats}
             />
           </div>

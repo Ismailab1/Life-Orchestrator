@@ -102,9 +102,9 @@ export const TutorialOverlay: React.FC<Props> = ({ onComplete, onSkip, isDemo = 
   const step = steps[currentStep];
 
   return (
-    <div className={`fixed inset-0 z-50 transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]" onClick={onSkip} />
+    <div className={`fixed inset-0 z-[150] transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+      {/* Backdrop - Semi-transparent so UI elements remain visible */}
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]" onClick={onSkip} />
 
       {/* Card Container - Flex on mobile, Absolute on Desktop */}
       <div className={`absolute w-full h-full pointer-events-none flex items-center justify-center lg:block`}>
@@ -114,7 +114,8 @@ export const TutorialOverlay: React.FC<Props> = ({ onComplete, onSkip, isDemo = 
             pointer-events-auto 
             bg-white text-slate-800 
             p-6 rounded-2xl shadow-2xl 
-            border border-white/20 
+            border-2 border-indigo-200
+            ring-4 ring-indigo-500/20
             max-w-sm w-[90%] mx-auto lg:mx-0
             lg:absolute transition-all duration-500 ease-in-out
             ${step.positionClasses}

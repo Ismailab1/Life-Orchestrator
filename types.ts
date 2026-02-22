@@ -151,6 +151,84 @@ export interface ChatMessage {
  */
 export type ChatHistory = Record<string, ChatMessage[]>;
 
+export interface Task {
+  id: string;
+  gcal_id?: string;
+  gcal_recurring_id?: string;
+  title: string;
+  type: 'fixed' | 'flexible';
+  time?: string;
+  date?: string; // YYYY-MM-DD format to associate task with a specific day
+  duration: string;
+  priority: 'high' | 'medium' | 'low';
+  category?: 'Career' | 'Life' | 'Health' | 'Family';
+  recurrence?: RecurrenceRule;
+  description?: string;
+  location?: string;
+  attendees?: EventAttendee[];
+  conferenceData?: ConferenceData;
+  organizer?: EventOrganizer;
+}
+
+/**
+ * EventAttendee: Google Calendar attendee information
+ * Tracks meeting participants and their response status
+ */
+export interface EventAttendee {
+  email: string;
+  displayName?: string;
+  responseStatus?: 'accepted' | 'declined' | 'tentative' | 'needsAction';
+  organizer?: boolean;
+  self?: boolean;
+}
+
+/**
+ * ConferenceData: Video meeting link information
+ * Includes Google Meet, Zoom, or other conference platform links
+ */
+export interface ConferenceData {
+  entryPoints: ConferenceEntryPoint[];
+  conferenceSolution?: {
+    name: string; // e.g., "Google Meet", "Zoom"
+    iconUri?: string;
+  };
+}
+
+export interface ConferenceEntryPoint {
+  entryPointType: 'video' | 'phone' | 'sip' | 'more';
+  uri: string;
+  label?: string;
+}
+
+/**
+ * EventOrganizer: Who created/owns the calendar event
+ */
+export interface EventOrganizer {
+  email: string;
+  displayName?: string;
+  self?: boolean;
+}
+
+/**
+ * GoogleCalendarEvent: Complete Google Calendar event data
+ * Extended representation for calendar import with all metadata
+ */
+export interface GoogleCalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  location?: string;
+  start: { dateTime?: string; date?: string; timeZone?: string };
+  end: { dateTime?: string; date?: string; timeZone?: string };
+  attendees?: EventAttendee[];
+  conferenceData?: ConferenceData;
+  organizer?: EventOrganizer;
+  recurringEventId?: string;
+  recurrence?: string[]; // RRULE array
+  colorId?: string;
+  status?: string;
+}
+
 /**
  * StorageStats: localStorage quota management
  * DESIGN DECISION: Proactive storage monitoring
@@ -162,15 +240,7 @@ export type ChatHistory = Record<string, ChatMessage[]>;
  * 4. User warnings before hitting quota limits
  * 
  * The app provides a storage manager UI to delete old messages when needed.
- */  title: string;
-  type: 'fixed' | 'flexible';
-  time?: string;
-  date?: string; // YYYY-MM-DD format to associate task with a specific day
-  duration: string;
-  priority: 'high' | 'medium' | 'low';
-  category?: 'Career' | 'Life' | 'Health' | 'Family';
-  recurrence?: RecurrenceRule;
-}
+ */
 
 export interface LifeInventory {
   flexible: Task[];

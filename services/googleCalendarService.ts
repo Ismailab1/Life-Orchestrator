@@ -34,7 +34,7 @@
  * Both libraries are loaded dynamically to avoid blocking initial page load.
  */
 
-import { Task, RecurrenceRule } from "../types";
+import { Task, RecurrenceRule, GoogleCalendarEvent, EventAttendee, ConferenceData, ConferenceEntryPoint, EventOrganizer } from "../types";
 
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
@@ -236,7 +236,11 @@ export class GoogleCalendarService {
     });
   }
 
-  public async listEvents(startDate: Date, endDate: Date): Promise<Task[]> {
+  /**
+   * List Google Calendar events with full metadata
+   * Returns GoogleCalendarEvent objects with all available properties
+   */
+  public async listEvents(startDate: Date, endDate: Date): Promise<GoogleCalendarEvent[]> {
     await this.ensureAuthenticated();
     
     const timeMin = new Date(startDate);
@@ -254,31 +258,114 @@ export class GoogleCalendarService {
         orderBy: 'startTime',
       });
 
-      return (response.result.items || []).map((event: any) => {
-        const start = event.start.dateTime || event.start.date;
-        const startDateObj = new Date(start);
-        const end = event.end.dateTime || event.end.date;
-        const endDateObj = new Date(end);
-        const diffMs = endDateObj.getTime() - startDateObj.getTime();
-        const hrs = Math.floor(diffMs / 3600000);
-        const mins = Math.round((diffMs % 3600000) / 60000);
-
-        return {
-          id: event.id,
-          gcal_id: event.id,
-          gcal_recurring_id: event.recurringEventId,
-          title: event.summary || 'Untitled',
-          type: 'fixed',
-          time: startDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          date: startDateObj.toISOString().split('T')[0],
-          duration: hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`,
-          priority: 'medium',
-          category: 'Life',
-        } as Task;
-      });
+      return (response.result.items || []).map((event: any): GoogleCalendarEvent => ({
+        id: event.id,
+        summary: event.summary || 'Untitled',
+        description: event.description,
+        location: event.location,
+        start: {
+          dateTime: event.start.dateTime,
+          date: event.start.date,
+          timeZone: event.start.timeZone,
+        },
+        end: {
+          dateTime: event.end.dateTime,
+          date: event.end.date,
+          timeZone: event.end.timeZone,
+        },
+        attendees: event.attendees?.map((a: any): EventAttendee => ({
+          email: a.email,
+          displayName: a.displayName,
+          responseStatus: a.responseStatus,
+          organizer: a.organizer,
+          self: a.self,
+        })),
+        conferenceData: event.conferenceData ? {
+          entryPoints: event.conferenceData.entryPoints?.map((ep: any): ConferenceEntryPoint => ({
+            entryPointType: ep.entryPointType,
+            uri: ep.uri,
+            label: ep.label,
+          })) || [],
+          conferenceSolution: event.conferenceData.conferenceSolution ? {
+            name: event.conferenceData.conferenceSolution.name,
+            iconUri: event.conferenceData.conferenceSolution.iconUri,
+          } : undefined,
+        } : undefined,
+        organizer: event.organizer ? {
+          email: event.organizer.email,
+          displayName: event.organizer.displayName,
+          self: event.organizer.self,
+        } : undefined,
+        recurringEventId: event.recurringEventId,
+        recurrence: event.recurrence,
+        colorId: event.colorId,
+        status: event.status,
+      }));
     } catch (err) {
       throw new Error(this.handleApiError(err));
     }
+  }
+
+  /**
+   * Convert GoogleCalendarEvent to Task for import
+   * Simplifies the rich event data into our task structure
+   */
+  public convertEventToTask(event: GoogleCalendarEvent): Task {
+    const start = event.start.dateTime || event.start.date;
+    const startDateObj = new Date(start!);
+    const end = event.end.dateTime || event.end.date;
+    const endDateObj = new Date(end!);
+    
+    const duration = this.calculateDuration(startDateObj, endDateObj);
+    const time = event.start.dateTime 
+      ? startDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : undefined;
+
+    return {
+      id: event.id,
+      gcal_id: event.id,
+      gcal_recurring_id: event.recurringEventId,
+      title: event.summary,
+      type: 'fixed',
+      time,
+      date: startDateObj.toISOString().split('T')[0],
+      duration,
+      priority: 'medium',
+      category: 'Life',
+      description: event.description,
+      location: event.location,
+      attendees: event.attendees,
+      conferenceData: event.conferenceData,
+      organizer: event.organizer,
+    };
+  }
+
+  /**
+   * Calculate human-readable duration from start and end dates
+   */
+  private calculateDuration(start: Date, end: Date): string {
+    const diffMs = end.getTime() - start.getTime();
+    const hrs = Math.floor(diffMs / 3600000);
+    const mins = Math.round((diffMs % 3600000) / 60000);
+    
+    if (hrs > 0 && mins > 0) return `${hrs}h ${mins}m`;
+    if (hrs > 0) return `${hrs}h`;
+    return `${mins}m`;
+  }
+
+  /**
+   * Get human-readable recurrence pattern from RRULE
+   */
+  public getRecurrencePattern(recurrence?: string[]): string | null {
+    if (!recurrence || recurrence.length === 0) return null;
+    
+    const rrule = recurrence[0];
+    if (rrule.includes('FREQ=DAILY')) return 'Daily';
+    if (rrule.includes('FREQ=WEEKLY')) return 'Weekly';
+    if (rrule.includes('FREQ=MONTHLY')) return 'Monthly';
+    if (rrule.includes('FREQ=YEARLY')) return 'Yearly';
+    
+    return 'Recurring';
   }
 
   private mapRecurrenceToRRule(rule: RecurrenceRule): string {
