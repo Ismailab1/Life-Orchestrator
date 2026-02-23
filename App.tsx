@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DESIGN DECISION: Main Application Component Architecture
  * 
  * App.tsx orchestrates the entire application state and component hierarchy.
@@ -422,71 +422,70 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
             return toDateString(d);
         };
         
-        // Create dates for the full week (3 days ago to 3 days from now)
-        // Feb 22, 2026 is a Sunday
-        const day_m3 = getDate(-3); // Thursday (3 days ago)
-        const day_m2 = getDate(-2); // Friday (2 days ago)
-        const day_m1 = getDate(-1); // Saturday (yesterday)
-        const day_0 = getDate(0);   // Sunday (today)
-        const day_p1 = getDate(1);  // Monday (tomorrow)
-        const day_p2 = getDate(2);  // Tuesday (day after tomorrow)
-        const day_p3 = getDate(3);  // Wednesday
+        // Create dates for this week: Sunday → Saturday
+        // Feb 22, 2026 is a Sunday (today = day 0, week ends on Saturday Feb 28)
+        const day_0  = getDate(0); // Sunday  (today,    Feb 22)
+        const day_p1 = getDate(1); // Monday  (tomorrow, Feb 23)
+        const day_p2 = getDate(2); // Tuesday             Feb 24
+        const day_p3 = getDate(3); // Wednesday           Feb 25
+        const day_p4 = getDate(4); // Thursday            Feb 26
+        const day_p5 = getDate(5); // Friday              Feb 27
+        const day_p6 = getDate(6); // Saturday            Feb 28
         
         return {
             fixed: [
-                // Thursday - 3 days ago (REFLECTION - Completed work day)
-                { id: 'w1_1', title: '✓ Team Standup (Engineering)', type: 'fixed', time: '9:30 AM', duration: '30m', priority: 'medium', category: 'Career', date: day_m3 },
-                { id: 'w1_2', title: '✓ Sprint Planning Meeting', type: 'fixed', time: '2:00 PM', duration: '1.5h', priority: 'high', category: 'Career', date: day_m3 },
-                
-                // Friday - 2 days ago (REFLECTION - Completed)
-                { id: 'w2_1', title: '✓ Call with Grandpa', type: 'fixed', time: '10:00 AM', duration: '30m', priority: 'high', category: 'Family', date: day_m2 },
-                { id: 'w2_2', title: '✓ Product Demo to Stakeholders', type: 'fixed', time: '3:00 PM', duration: '1h', priority: 'high', category: 'Career', date: day_m2 },
-                
-                // Saturday - Yesterday (REFLECTION - Weekend, completed)
-                { id: 'w3_1', title: '✓ Dinner with Mom', type: 'fixed', time: '6:30 PM', duration: '2h', priority: 'high', category: 'Family', date: day_m1 },
-                
-                // Sunday - Today (ACTIVE - Weekend day)
-                { id: 'w4_1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family', date: day_0 },
-                { id: 'w4_2', title: 'Interview with Capital One', type: 'fixed', time: '2:00 PM', duration: '1h', priority: 'high', category: 'Career', date: day_0 },
-                
-                // Monday - Tomorrow (PLANNING - Work week starts)
-                { id: 'w5_1', title: '[PLANNED] Project Launch: Phase 1', type: 'fixed', time: '9:00 AM', duration: '3h', priority: 'high', category: 'Career', date: day_p1 },
-                { id: 'w5_2', title: '[PLANNED] Team Retrospective', type: 'fixed', time: '4:00 PM', duration: '1h', priority: 'medium', category: 'Career', date: day_p1 },
-                
-                // Tuesday - Day after tomorrow (PLANNING)
-                { id: 'w6_1', title: '[PLANNED] Hiking with Alex @ Redwood Trail', type: 'fixed', time: '8:00 AM', duration: '3h', priority: 'medium', category: 'Life', date: day_p2 },
-                
-                // Wednesday (PLANNING)
-                { id: 'w7_1', title: '[PLANNED] Strategy Meeting', type: 'fixed', time: '11:00 AM', duration: '2h', priority: 'high', category: 'Career', date: day_p3 }
+                // Sunday - Today (ACTIVE - Interview day)
+                { id: 'w0_1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family', date: day_0 },
+                { id: 'w0_2', title: 'Interview with Capital One', type: 'fixed', time: '2:00 PM', duration: '1h', priority: 'high', category: 'Career', date: day_0 },
+
+                // Monday - Tomorrow (PLANNING - Launch day)
+                { id: 'w1_1', title: '[PLANNED] Project Launch: Phase 1', type: 'fixed', time: '9:00 AM', duration: '3h', priority: 'high', category: 'Career', date: day_p1 },
+                { id: 'w1_2', title: '[PLANNED] Team Retrospective', type: 'fixed', time: '4:00 PM', duration: '1h', priority: 'medium', category: 'Career', date: day_p1 },
+
+                // Tuesday (PLANNING - Outdoor + recovery)
+                { id: 'w2_1', title: '[PLANNED] Hiking with Alex @ Redwood Trail', type: 'fixed', time: '8:00 AM', duration: '3h', priority: 'medium', category: 'Life', date: day_p2 },
+
+                // Wednesday (PLANNING - Mid-week sync)
+                { id: 'w3_1', title: '[PLANNED] Strategy Meeting', type: 'fixed', time: '11:00 AM', duration: '2h', priority: 'high', category: 'Career', date: day_p3 },
+
+                // Thursday (PLANNING - Engineering day)
+                { id: 'w4_1', title: '[PLANNED] Team Standup (Engineering)', type: 'fixed', time: '9:30 AM', duration: '30m', priority: 'medium', category: 'Career', date: day_p4 },
+                { id: 'w4_2', title: '[PLANNED] Call with Grandpa', type: 'fixed', time: '10:30 AM', duration: '30m', priority: 'high', category: 'Family', date: day_p4 },
+
+                // Friday (PLANNING - Demo day)
+                { id: 'w5_1', title: '[PLANNED] Product Demo to Stakeholders', type: 'fixed', time: '3:00 PM', duration: '1h', priority: 'high', category: 'Career', date: day_p5 },
+
+                // Saturday (PLANNING - Weekend social)
+                { id: 'w6_1', title: '[PLANNED] Dinner with Mom', type: 'fixed', time: '6:30 PM', duration: '2h', priority: 'high', category: 'Family', date: day_p6 }
             ],
             flexible: [
-                // Thursday - 3 days ago (REFLECTION - Completed)
-                { id: 'wf1_1', title: '✓ Morning Gym Session', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_m3 },
-                { id: 'wf1_2', title: '✓ Code Review: Auth Module', type: 'flexible', duration: '1h', priority: 'medium', category: 'Career', date: day_m3 },
-                
-                // Friday - 2 days ago (REFLECTION - Completed)
-                { id: 'wf2_1', title: '✓ Yoga Class', type: 'flexible', duration: '45m', priority: 'medium', category: 'Health', date: day_m2 },
-                { id: 'wf2_2', title: '✓ Prep for Capital One Interview', type: 'flexible', duration: '1.5h', priority: 'high', category: 'Career', date: day_m2 },
-                
-                // Saturday - Yesterday (REFLECTION - Weekend, completed)
-                { id: 'wf3_1', title: '✓ Morning Run (5k)', type: 'flexible', duration: '30m', priority: 'medium', category: 'Health', date: day_m1 },
-                { id: 'wf3_2', title: '✓ Apartment Deep Clean', type: 'flexible', duration: '2h', priority: 'low', category: 'Life', date: day_m1 },
-                
                 // Sunday - Today (ACTIVE)
-                { id: 'wf4_1', title: 'Python Debugging Practice', type: 'flexible', duration: '2h', priority: 'medium', category: 'Career', date: day_0 },
-                { id: 'wf4_2', title: 'Gym / Cardio', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_0 },
-                
-                // Monday - Tomorrow (PLANNING - Work week)
-                { id: 'wf5_1', title: 'Documentation Write-up', type: 'flexible', duration: '1.5h', priority: 'medium', category: 'Career', date: day_p1 },
-                { id: 'wf5_2', title: 'Evening Gym Session', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_p1 },
-                
-                // Tuesday - Day after tomorrow (PLANNING)
-                { id: 'wf6_1', title: 'Grocery Run (Meal Prep)', type: 'flexible', duration: '1h', priority: 'low', category: 'Life', date: day_p2 },
-                { id: 'wf6_2', title: 'Read: "Range" by David Epstein', type: 'flexible', duration: '1h', priority: 'low', category: 'Life', date: day_p2 },
-                
+                { id: 'wf0_1', title: 'Python Debugging Practice', type: 'flexible', duration: '2h', priority: 'medium', category: 'Career', date: day_0 },
+                { id: 'wf0_2', title: 'Gym / Cardio', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_0 },
+
+                // Monday (PLANNING - Work week)
+                { id: 'wf1_1', title: 'Documentation Write-up', type: 'flexible', duration: '1.5h', priority: 'medium', category: 'Career', date: day_p1 },
+                { id: 'wf1_2', title: 'Evening Gym Session', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_p1 },
+
+                // Tuesday (PLANNING - Post-hike recovery)
+                { id: 'wf2_1', title: 'Grocery Run (Meal Prep)', type: 'flexible', duration: '1h', priority: 'low', category: 'Life', date: day_p2 },
+                { id: 'wf2_2', title: 'Read: "Range" by David Epstein', type: 'flexible', duration: '1h', priority: 'low', category: 'Life', date: day_p2 },
+
                 // Wednesday (PLANNING)
-                { id: 'wf7_1', title: 'Meal Prep for Week', type: 'flexible', duration: '2h', priority: 'medium', category: 'Health', date: day_p3 },
-                { id: 'wf7_2', title: 'Review Weekly Goals', type: 'flexible', duration: '30m', priority: 'medium', category: 'Career', date: day_p3 }
+                { id: 'wf3_1', title: 'Meal Prep for Week', type: 'flexible', duration: '2h', priority: 'medium', category: 'Health', date: day_p3 },
+                { id: 'wf3_2', title: 'Review Weekly Goals', type: 'flexible', duration: '30m', priority: 'medium', category: 'Career', date: day_p3 },
+
+                // Thursday (PLANNING)
+                { id: 'wf4_1', title: 'Morning Gym Session', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_p4 },
+                { id: 'wf4_2', title: 'Code Review: Auth Module', type: 'flexible', duration: '1h', priority: 'medium', category: 'Career', date: day_p4 },
+
+                // Friday (PLANNING)
+                { id: 'wf5_1', title: 'Yoga Class', type: 'flexible', duration: '45m', priority: 'medium', category: 'Health', date: day_p5 },
+                { id: 'wf5_2', title: 'Interview Debrief Notes', type: 'flexible', duration: '1h', priority: 'medium', category: 'Career', date: day_p5 },
+
+                // Saturday (PLANNING - Weekend)
+                { id: 'wf6_1', title: 'Morning Run (5k)', type: 'flexible', duration: '30m', priority: 'medium', category: 'Health', date: day_p6 },
+                { id: 'wf6_2', title: 'Apartment Deep Clean', type: 'flexible', duration: '2h', priority: 'low', category: 'Life', date: day_p6 }
             ]
         };
     }
@@ -603,98 +602,88 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
               return d.toISOString();
           };
           
-          // Create dates for the full week
-          const day_m3 = getDate(-3); // Monday
-          const day_m2 = getDate(-2); // Tuesday
-          const day_m1 = getDate(-1); // Wednesday
-          const day_0 = getDate(0);   // Thursday (today)
-          const day_p1 = getDate(1);  // Friday
-          const day_p2 = getDate(2);  // Saturday
-          const day_p3 = getDate(3);  // Sunday
-          
-          const day_m3_key = toDateString(day_m3);
-          const day_m2_key = toDateString(day_m2);
-          const day_m1_key = toDateString(day_m1);
-          const day_0_key = toDateString(day_0);
+          // Create dates for this week: Sunday → Saturday (Feb 22 – Feb 28)
+          const day_0  = getDate(0); // Sunday    (today,    Feb 22)
+          const day_p1 = getDate(1); // Monday               Feb 23
+          const day_p2 = getDate(2); // Tuesday              Feb 24
+          const day_p3 = getDate(3); // Wednesday            Feb 25
+          const day_p4 = getDate(4); // Thursday             Feb 26
+          const day_p5 = getDate(5); // Friday               Feb 27
+          const day_p6 = getDate(6); // Saturday             Feb 28
+
+          const day_0_key  = toDateString(day_0);
           const day_p1_key = toDateString(day_p1);
           const day_p2_key = toDateString(day_p2);
           const day_p3_key = toDateString(day_p3);
+          const day_p4_key = toDateString(day_p4);
+          const day_p5_key = toDateString(day_p5);
+          const day_p6_key = toDateString(day_p6);
           
           return {
-              // Monday - 3 days ago (REFLECTION)
-              [day_m3_key]: [
-                  { id: 'm3_1', role: 'model', timestamp: createIso(day_m3, 8, 0), text: "📅 **REFLECTION MODE** - Analyzing 3 days ago:\n\nMonday had Team Standup (9:30 AM) and Sprint Planning (2 PM). How did those go? I also see 'Review Sprint Docs' was scheduled as a flexible task—did you complete that?" },
-                  { id: 'm3_2', role: 'user', timestamp: createIso(day_m3, 15, 45), text: "Sprint planning went great! We're launching Phase 1 on Friday. I got the docs reviewed but it took longer than expected—about 3 hours." },
-                  { id: 'm3_3', role: 'model', timestamp: createIso(day_m3, 15, 46), thought: "User mentions 3 hours for doc review (originally estimated 2h). Saving this as a preference for future estimation calibration. Major launch Friday means critical week ahead.", text: "Excellent news on the launch! I've saved your note about doc reviews taking ~3 hours—I'll estimate more accurately going forward.\n\n⚠️ **CAPACITY INSIGHT**: With Friday's launch, I'll make sure your family commitments are honored this week. Grandpa needs his call Tuesday (his Kinship Debt is at 2 days × Priority 1 = 2), and Grandma has PT Thursday." }
-              ],
-              
-              // Tuesday - 2 days ago (REFLECTION)
-              [day_m2_key]: [
-                  { id: 'm2_1', role: 'model', timestamp: createIso(day_m2, 8, 30), text: "📅 **REFLECTION MODE** - Looking back at 2 days ago:\n\nTuesday had: Check-in call with Grandpa (10 AM), Product Demo Rehearsal (3 PM), and Yoga (12:30 PM).\n\n**Relationship Verification**: Did you connect with Grandpa as planned? How did the call go?" },
-                  { id: 'm2_2', role: 'user', timestamp: createIso(day_m2, 10, 35), text: "Yes, called Grandpa around 10:15 AM. He seemed a bit confused today, but overall okay. Need to check in more often." },
-                  { id: 'm2_3', role: 'model', timestamp: createIso(day_m2, 10, 36), thought: "Grandpa showing confusion symptoms. Updating ledger with Tuesday contact date and status to 'Needs Attention'. Will prioritize regular morning check-ins every 2-3 days.", text: "✅ I've updated Grandpa's ledger to reflect Tuesday's contact and changed his status to 'Needs Attention' based on the confusion.\n\n**MEMORY SAVED**: You prefer morning calls with Grandpa (before confusion sets in). I'll recommend check-ins every 2-3 days during 9-11 AM windows.\n\nHow did the demo rehearsal go?" },
-                  { id: 'm2_4', role: 'user', timestamp: createIso(day_m2, 16, 20), text: "Demo rehearsal was solid. Feeling prepared for Friday! 💪" },
-                  { id: 'm2_5', role: 'model', timestamp: createIso(day_m2, 16, 21), text: "Perfect momentum! Two days to launch. Tomorrow's Strategy Review with the board will be your final validation point." }
-              ],
-              
-              // Wednesday - Yesterday (REFLECTION)
-              [day_m1_key]: [
-                  { id: 'm1_1', role: 'model', timestamp: createIso(day_m1, 8, 30), text: "📅 **REFLECTION MODE** - Yesterday's activities:\n\nStrategy Review (11 AM), Dinner with Mom & Grandma (6:30 PM), and 5K Run (4 PM).\n\n**Relationship Check**: I see you had dinner scheduled with your mom. How did that go? Did Grandma join as planned?" },
-                  { id: 'm1_2', role: 'user', timestamp: createIso(day_m1, 13, 15), text: "Board meeting went exceptionally well! They loved the roadmap. Feeling pumped for Friday's launch." },
-                  { id: 'm1_3', role: 'model', timestamp: createIso(day_m1, 13, 16), thought: "User is on a roll. High confidence going into launch. Maintaining work-life balance will be key.", text: "Outstanding! This momentum is exactly what you need. Make sure to enjoy tonight's dinner—celebrate these wins with the people who matter.\n\n**Reminder**: Your mom and Grandma are expecting you at 6:30 PM. This will reset both their Kinship Debt scores." },
-                  { id: 'm1_4', role: 'user', timestamp: createIso(day_m1, 18, 45), text: "Dinner was amazing! Mom was so proud, and Grandma was surprisingly mobile—walking with minimal support. Here's a photo!", media: 'https://picsum.photos/id/1062/400/300' },
-                  { id: 'm1_5', role: 'model', timestamp: createIso(day_m1, 18, 46), thought: "Excellent progress for Grandma's recovery. Analyzing photo—she looks stable and mobile. Updating both contacts' ledgers with Wednesday's interaction.", text: "✅ That's wonderful! I've updated both Mom and Grandma's ledgers to reflect yesterday's dinner.\n\n**Status Update**: Grandma → 'Stable' (great mobility progress!)\n\nYou mentioned she had PT tomorrow at 10 AM. That session should keep her recovery on track." },
-                  { id: 'm1_6', role: 'user', timestamp: createIso(day_m1, 21, 0), text: "Btw, I really prefer doing interview prep in the evening when I'm more relaxed. Morning prep makes me too anxious." },
-                  { id: 'm1_7', role: 'model', timestamp: createIso(day_m1, 21, 1), thought: "Important preference: evening prep for interviews reduces anxiety. Saving this to memory bank.", text: "**MEMORY SAVED**: You prefer evening interview prep (more relaxed vs. morning anxiety).\n\nI'll schedule 90 minutes tonight (9-10:30 PM) for reviewing Capital One materials. Tomorrow morning after Grandma's PT will stay clear so you can decompress before the 2 PM interview.\n\n🎯 You're going to crush it!" }
-              ],
-              
-              // Thursday - Today (ACTIVE)
+              // Sunday - Today (ACTIVE - Interview day)
               [day_0_key]: [
-                  { id: 'm0_1', role: 'model', timestamp: createIso(day_0, 8, 15), text: "📍 **ACTIVE MODE** - Today's Schedule Analysis:\n\n**Fixed Anchors:**\n• 9:00 AM - Team Standup (30m)\n• 10:00 AM - Grandma's PT (1h)\n• 12:30 PM - Lunch Meeting with Product Team (1h)\n• 2:00 PM - Capital One Interview (1h)\n\n**Flexible Tasks:**\n• Python Practice (2h, HIGH priority)\n• Gym/Cardio (1h)\n• Check-in with Sarah (30m, HIGH)\n• Sprint Docs Review (2h)\n• Portfolio Update (1.5h, LOW)\n• Desk Organization (1h, LOW)\n• Meal Prep (1.5h, LOW)\n\n⚠️ **OVERLOAD ALERT**: Total = 13 hours of work. This exceeds realistic capacity (8-10h).\n\n🚨 **CRITICAL RELATIONSHIP**: Sarah has Kinship Debt of 12 (Priority 2 × 6 days). She's in CRITICAL status and needs attention today.\n\n**Recommendation**: I can move low-priority tasks (Portfolio Update, Desk Org, Meal Prep) to tomorrow to bring today down to 8.5 hours. This keeps focus on your interview and Sarah.\n\nWould you like me to redistribute those tasks?" },
-                  { id: 'm0_2', role: 'user', timestamp: createIso(day_0, 8, 45), text: "Yes, please move those lower priority tasks. And about Sarah—I should definitely call her, but is she usually available today?" },
-                  { id: 'm0_3', role: 'model', timestamp: createIso(day_0, 8, 46), thought: "User confirms task redistribution. Asking about Sarah's availability before scheduling—good practice. Sarah is a mentor, likely available late afternoon/evening after work hours.", text: "✅ I've moved Portfolio Update, Desk Organization, and Meal Prep to Friday (post-launch recovery day).\n\n**Today's revised capacity**: 8.5 hours ✓\n\n**Regarding Sarah**: As your career mentor, she's typically available late afternoon or early evening (4-6 PM). Given that your interview ends at 3 PM, would you like to schedule a check-in call with her around 4:30 PM? She'd probably love to hear how the interview went!" },
-                  { id: 'm0_4', role: 'user', timestamp: createIso(day_0, 9, 15), text: "Perfect! Yes, add Sarah at 4:30 PM. That way I can debrief the interview with her right away." },
-                  { id: 'm0_5', role: 'model', timestamp: createIso(day_0, 9, 16), thought: "Adding Sarah check-in at 4:30 PM. This will reset her Kinship Debt and provide valuable post-interview mentorship. User is being strategic about timing.", text: "✅ **Added**: Check-in call with Sarah at 4:30 PM (30m)\n\nThis is excellent timing—she can provide immediate feedback on your interview performance and potentially coach you on follow-up strategy with Jordan (your potential manager).\n\nHere's your optimized schedule:\n\n**9:00 AM** - Team Standup (30m)\n**10:00 AM** - Grandma's PT (1h)\n**12:30 PM** - Lunch Meeting (1h)\n**2:00 PM** - Capital One Interview (1h) 🎯\n**3:30 PM** - Python Practice (1h warm-up)\n**4:30 PM** - Call with Sarah (30m) 📞\n**5:30 PM** - Gym/Cardio (1h)\n**7:00 PM** - Sprint Docs Review (2h)\n\nYou're set up for success! 💪" },
-                  { id: 'm0_6', role: 'user', timestamp: createIso(day_0, 13, 45), text: "The interview just got moved to 3:30 PM instead of 2:00. Can you re-orchestrate?" },
-                  { id: 'm0_7', role: 'model', timestamp: createIso(day_0, 13, 46), thought: "Interview shifted 1.5 hours later. This creates a new gap from 2-3:30 PM. I can move Gym earlier to capitalize on this window while keeping Python practice right before interview for technical warm-up. Sarah call stays at 4:30 since interview now ends at 4:30.", text: "**EXECUTIVE PIVOT** - Interview time shifted.\n\nNo problem! Here's the optimized reflow:", proposal: {
-                      optimized_timeline: "9:00 AM - Team Standup\n10:00 AM - Grandma PT\n12:30 PM - Lunch Meeting\n2:00 PM - Gym/Cardio (Moved Up) ✓\n3:00 PM - Python Practice (30m Interview Warm-up)\n3:30 PM - Capital One Interview\n5:00 PM - Call with Sarah (Post-interview debrief)",
-                      reasoning: "Moving gym to the new 2:00 PM gap ensures you don't skip health goals. Python practice right before interview (3:00-3:30) gets your mind in technical mode. Sarah's call shifts to 5:00 PM so you can debrief the interview immediately. This also reduces nervous energy through exercise before your high-stakes interview.",
+                  { id: 'm0_1', role: 'model', timestamp: createIso(day_0, 8, 15), text: "📍 **ACTIVE MODE** - Today's Schedule Analysis (Sunday, Feb 22):\n\n**Fixed Anchors:**\n• 10:00 AM - Grandma's PT (1h)\n• 2:00 PM - Capital One Interview (1h)\n\n**Flexible Tasks:**\n• Python Debugging Practice (2h, HIGH)\n• Gym/Cardio (1h)\n• Check-in with Sarah (30m, CRITICAL)\n\n⚠️ **CAPACITY ALERT**: 5.5h of tasks is manageable, but Sarah is in CRITICAL status (Kinship Debt 12—6 days × Priority 2). She needs contact today.\n\n**Recommendation**: Schedule Sarah check-in at 4:30 PM right after the interview, while the feedback is fresh. She can mentor you on next steps.\n\nWould you like me to lock in this order?" },
+                  { id: 'm0_2', role: 'user', timestamp: createIso(day_0, 8, 45), text: "Yes! Add Sarah right after the interview. She'll love hearing how it went." },
+                  { id: 'm0_3', role: 'model', timestamp: createIso(day_0, 8, 46), thought: "User confirms Sarah call at 4:30 PM. This resets her Kinship Debt (currently CRITICAL at 12). Interview ends ~3 PM so 4:30 gives a 90-min debrief buffer. Good sequencing.", text: "✅ **Schedule Locked**:\n\n**10:00 AM** - Grandma's PT (1h) 👵\n**12:00 PM** - Python Debugging Practice (2h) 💻\n**2:00 PM** - Capital One Interview (1h) 🎯\n**3:30 PM** - Gym/Cardio (wind-down run) 🏃\n**4:30 PM** - Check-in with Sarah (30m) 📞\n\nThis clears Sarah's CRITICAL status and gives you exercise to decompress post-interview. Good luck today—you've got this!" },
+                  { id: 'm0_4', role: 'user', timestamp: createIso(day_0, 13, 30), text: "Quick heads up—the interview got pushed to 3:30 PM. Can you re-orchestrate?" },
+                  { id: 'm0_5', role: 'model', timestamp: createIso(day_0, 13, 31), thought: "Interview moved 1.5h later. New gap 2-3:30 PM available. Move Gym into that window for nervous energy release. Python practice right before interview (3:00-3:30) for technical warm-up. Sarah shifts to 5 PM.", text: "**EXECUTIVE PIVOT** — Interview shifted to 3:30 PM. Optimized reflow:", proposal: {
+                      optimized_timeline: "10:00 AM - Grandma PT\n12:00 PM - Python Practice (2h technical warm-up)\n2:00 PM - Gym/Cardio (burn off nerves) ✓\n3:30 PM - Capital One Interview 🎯\n5:00 PM - Call with Sarah (post-interview debrief)",
+                      reasoning: "Gym moves into the new 2:00 PM gap—exercise is proven to reduce pre-interview anxiety. Python practice stays at noon so your technical mind is fresh. Sarah's debrief shifts to 5 PM, right after results are fresh. Net result: same tasks, better sequencing for a high-stakes interview day.",
                       schedule: [
-                        { id: 'w4_s1', title: 'Team Standup', type: 'fixed', time: '9:00 AM', duration: '30m', priority: 'medium', category: 'Career' },
-                        { id: 'w4_1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family' },
-                        { id: 'w4_s2', title: 'Lunch Meeting with Product Team', type: 'fixed', time: '12:30 PM', duration: '1h', priority: 'medium', category: 'Career' },
-                        { id: 'wf4_1', title: 'Gym / Cardio', type: 'fixed', time: '2:00 PM', duration: '1h', priority: 'medium', category: 'Health' },
-                        { id: 'wf4_2', title: 'Python Debugging Practice', type: 'fixed', time: '3:00 PM', duration: '30m', priority: 'high', category: 'Career' },
-                        { id: 'w4_2', title: 'Interview with Capital One', type: 'fixed', time: '3:30 PM', duration: '1h', priority: 'high', category: 'Career' },
-                        { id: 'wf4_3', title: 'Check-in call with Sarah', type: 'fixed', time: '5:00 PM', duration: '30m', priority: 'high', category: 'Family' }
+                        { id: 'w0_1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family' },
+                        { id: 'wf0_1', title: 'Python Debugging Practice', type: 'fixed', time: '12:00 PM', duration: '2h', priority: 'high', category: 'Career' },
+                        { id: 'wf0_2', title: 'Gym / Cardio', type: 'fixed', time: '2:00 PM', duration: '1h', priority: 'medium', category: 'Health' },
+                        { id: 'w0_2', title: 'Interview with Capital One', type: 'fixed', time: '3:30 PM', duration: '1h', priority: 'high', category: 'Career' },
+                        { id: 'wf0_3', title: 'Check-in call with Sarah', type: 'fixed', time: '5:00 PM', duration: '30m', priority: 'high', category: 'Family' }
                       ]
                   }}
               ],
-              
-              // Friday - Tomorrow (PLANNING)
+
+              // Monday - Launch Day (PLANNING)
               [day_p1_key]: [
-                  { id: 'p1_1', role: 'model', timestamp: createIso(day_p1, 7, 0), text: "� **PLANNING MODE** - Launch Day Orchestration:\n\n**System Status Check:**\n• Mom: Last contact 2 days ago (Kinship Debt 2×2=4 ✓)\n• Alex: Last contact 4 days ago (Kinship Debt 1×4=4 ✓)\n• Jordan: Last contact 0 days (stable ✓)\n• Sarah: **Updated today** after your call (Kinship Debt reset to 0 ✓)\n• Grandma & Grandpa: Both stable ✓\n\n**Launch Task Queue:**\n• Portfolio Update (1.5h, moved from today)\n• Desk Organization (1h, moved from today)\n• Meal Prep (1.5h, moved from today)\n\n**Total Capacity**: 4 hours (recovery day by design)\n\nThis keeps tomorrow light so you have mental bandwidth for launch monitoring, celebration, or debugging. Would you like me to schedule these with buffer space for flexibility?" },
-                  { id: 'p1_2', role: 'user', timestamp: createIso(day_p1, 7, 30), text: "Yes, keep it light. Space things out so I can monitor the launch without stress." },
-                  { id: 'p1_3', role: 'model', timestamp: createIso(day_p1, 7, 31), thought: "User wants breathing room for launch monitoring. Proposing relaxed schedule with 2-3 hour gaps between tasks.", text: "✅ **Relaxed Launch Day Schedule**:\n\n**10:00 AM** - Portfolio Update (1.5h)\n*[Launch monitoring window]*\n**2:00 PM** - Desk Organization (1h)\n*[Flex time for celebration/debugging]*\n**5:00 PM** - Meal Prep (1.5h)\n\nThis gives you 2-3 hour windows between tasks to monitor metrics, respond to user feedback, or celebrate if things go smoothly! 🎉" }
+                  { id: 'p1_1', role: 'model', timestamp: createIso(day_p1, 7, 0), text: "🗓️ **PLANNING MODE** - Monday, Feb 23 — Launch Day:\n\n**Fixed:**\n• 9:00 AM - Project Launch: Phase 1 (3h)\n• 4:00 PM - Team Retrospective (1h)\n\n**Flexible:**\n• Documentation Write-up (1.5h)\n• Evening Gym Session (1h)\n\n**Relationship Status:**\n• Sarah: Reset to 0 after Sunday call ✓\n• Grandma: Stable after PT ✓\n• Alex: 2 days since last contact ✓\n\n⚠️ **CAPACITY NOTE**: Launch + Retro = 4h of high-focus work. Keep Documentation light (after 2 PM). Gym in the evening to decompress.\n\nWant me to schedule the flex tasks around the launch windows?" },
+                  { id: 'p1_2', role: 'user', timestamp: createIso(day_p1, 7, 30), text: "Yes, keep afternoon light. I'll need bandwidth to monitor launch metrics." },
+                  { id: 'p1_3', role: 'model', timestamp: createIso(day_p1, 7, 31), thought: "User wants light afternoon for launch monitoring. Space Docs write-up after lunch, Gym after retro as a debrief ritual.", text: "✅ **Monday Schedule**:\n\n**9:00 AM** - Project Launch: Phase 1 (3h) 🚀\n**12:30 PM** - Documentation Write-up (1.5h)\n*[Monitoring window — 2-4 PM]*\n**4:00 PM** - Team Retrospective (1h)\n**6:30 PM** - Evening Gym Session (decompress + celebrate)\n\nLaunch day is set. Go ship it! 🎉" }
               ],
-              
-              // Saturday - Day after tomorrow (PLANNING)
+
+              // Tuesday - Hiking + Recovery (PLANNING)
               [day_p2_key]: [
-                  { id: 'p2_1', role: 'model', timestamp: createIso(day_p2, 9, 0), text: "🗓️ **PLANNING MODE** - Weekend Recovery:\n\n**Relationship Check:**\n• Alex: Will be at **6 days** since last contact by Saturday (Kinship Debt 1×6=6, approaching \"Needs Attention\" threshold)\n• Grandma: Could use a check-in call (family connection)\n\n**Recommendation**: Morning hike with Alex at Redwood Trail (9 AM, 2h) would reset his status and provide perfect post-launch recovery. Afternoon call with Grandma (30m) keeps family connections strong.\n\nThis leaves Saturday afternoon wide open for deep cleaning, reading, or pure relaxation. Thoughts?" },
-                  { id: 'p2_2', role: 'user', timestamp: createIso(day_p2, 9, 30), text: "Love it! Alex has been asking about hiking for weeks, and Grandma would appreciate a call." },
-                  { id: 'p2_3', role: 'model', timestamp: createIso(day_p2, 9, 31), thought: "User confirms both relationship activities. This will reset Alex's Kinship Debt and strengthen family bond with Grandma. Good balance of friend + family.", text: "✅ **Saturday Orchestration**:\n\n**9:00 AM** - Hiking with Alex at Redwood Trail (2h) 🥾\n**1:00 PM** - Call with Grandma (30m) 📞\n**2:00 PM** - Open flex time (reading, cleaning, relaxation)\n\nYou'll walk into Sunday with strong relationship momentum and full recovery from launch week! 🌲" }
+                  { id: 'p2_1', role: 'model', timestamp: createIso(day_p2, 8, 0), text: "🗓️ **PLANNING MODE** - Tuesday, Feb 24:\n\n**Fixed:**\n• 8:00 AM - Hiking with Alex @ Redwood Trail (3h)\n\n**Flexible:**\n• Grocery Run / Meal Prep (1h)\n• Read: \"Range\" by David Epstein (1h)\n\n**Relationship Alert:**\n• Alex: Has been asking about this hike for weeks—Kinship Debt resets to 0 after today ✓\n\nLight day by design—post-launch recovery. Afternoon is wide open. Groceries and reading can float around your energy levels." },
+                  { id: 'p2_2', role: 'user', timestamp: createIso(day_p2, 8, 30), text: "Perfect. I'll grab groceries on the way back from the trail." },
+                  { id: 'p2_3', role: 'model', timestamp: createIso(day_p2, 8, 31), thought: "Combining grocery run with trail return is efficient. Alex's KD resets. This is a great recovery day.", text: "Smart batching! Updated plan:\n\n**8:00 AM** - Hiking with Alex (3h) 🥾\n**11:30 AM** - Grocery run on the way home (1h) 🛒\n**3:00 PM** - Read: \"Range\" (1h) 📖\n\nYou'll walk into Wednesday fully recovered and stocked. Enjoy the trail!" }
               ],
-              
-              // Sunday (PLANNING)
+
+              // Wednesday - Mid-Week Sync (PLANNING)
               [day_p3_key]: [
-                  { id: 'p3_1', role: 'model', timestamp: createIso(day_p3, 9, 0), text: "🗓️ **PLANNING MODE** - Week Wrap-Up:\n\n**System Status:**\n• All relationships stable (Alex reset Saturday, Sarah reset Thursday)\n• Launch week complete 🎉\n• Next week capacity: clean slate\n\n**Sunday Proposal:**\n• 11:00 AM - Family Brunch (2h, quality time with Mom/Grandma/Grandpa)\n• 2:00 PM - Meal Prep for new week (1.5h)\n• 4:00 PM - Weekly Review & Next Sprint Planning (30m)\n\nThis closes out family connection goals and sets you up for Monday with meal prep done and clear intentions. Want to lock this in?" },
-                  { id: 'p3_2', role: 'user', timestamp: createIso(day_p3, 9, 45), text: "Perfect! This was a great week. Really appreciate how you balanced my interview, launch, and family commitments." },
-                  { id: 'p3_3', role: 'model', timestamp: createIso(day_p3, 9, 46), thought: "User expressing satisfaction with orchestration. This validates the temporal mode switching, capacity management, and relationship tracking systems. Wrapping up week on high note.", text: "Thank you! Here's what we accomplished together:\n\n✅ Redistributed 11.5h → 8.5h on interview day (prevented burnout)\n✅ Connected with Sarah in CRITICAL status (mentor relationship preserved)\n✅ Protected Grandma's PT commitment (family priority honored)\n✅ Light launch day with monitoring windows\n✅ Weekend recovery with Alex hike + Grandma call\n\n**MEMORY SAVED**: User values proactive capacity management and relationship balance during high-pressure weeks.\n\nYou're all set for next week! 🚀" }
+                  { id: 'p3_1', role: 'model', timestamp: createIso(day_p3, 8, 0), text: "🗓️ **PLANNING MODE** - Wednesday, Feb 25:\n\n**Fixed:**\n• 11:00 AM - Strategy Meeting (2h)\n\n**Flexible:**\n• Meal Prep for Week (2h)\n• Review Weekly Goals (30m)\n\n**Relationship Check:**\n• Grandpa: Last contact was Friday (3 days ago). Kinship Debt = 3. Recommend a Thursday morning call before it escalates.\n• Alex & Sarah: Both stable after this week's interactions ✓\n\nAfternoon is free—meal prep early so evenings stay open. Weekly review after dinner keeps you grounded heading into the back half of the week." },
+                  { id: 'p3_2', role: 'user', timestamp: createIso(day_p3, 8, 30), text: "Good idea on Grandpa—I'll put it in for Thursday morning." },
+                  { id: 'p3_3', role: 'model', timestamp: createIso(day_p3, 8, 31), thought: "User confirms Grandpa call Thursday. This aligns with the existing Thursday inventory item (Call with Grandpa, 10:30 AM). KD will be at 4 by Thursday which is still manageable.", text: "✅ Grandpa call is already in Thursday's schedule at 10:30 AM (right after Team Standup). Perfect timing—morning calls keep him sharp.\n\n**Wednesday Plan:**\n\n**11:00 AM** - Strategy Meeting (2h)\n**2:00 PM** - Meal Prep for Week (2h) 🍱\n**7:00 PM** - Weekly Goals Review (30m)\n\nStrong mid-week anchor. See you tomorrow!" }
+              ],
+
+              // Thursday - Engineering Day (PLANNING)
+              [day_p4_key]: [
+                  { id: 'p4_1', role: 'model', timestamp: createIso(day_p4, 8, 0), text: "🗓️ **PLANNING MODE** - Thursday, Feb 26:\n\n**Fixed:**\n• 9:30 AM - Team Standup (30m)\n• 10:30 AM - Call with Grandpa (30m)\n\n**Flexible:**\n• Morning Gym Session (1h)\n• Code Review: Auth Module (1h)\n\n**Relationship Priority:**\n• Grandpa (Kinship Debt 4, Needs Attention) — call locked in ✓\n\nRelatively light schedule after Wednesday's meeting. Gym before standup front-loads the energy. Code review can flex to afternoon if morning runs long." },
+                  { id: 'p4_2', role: 'user', timestamp: createIso(day_p4, 8, 30), text: "Looks good. I'll hit the gym at 7 AM before standup." },
+                  { id: 'p4_3', role: 'model', timestamp: createIso(day_p4, 8, 31), thought: "User confirms 7 AM gym. Good front-loading. Standup at 9:30 gives ample buffer. Grandpa at 10:30 for morning clarity.", text: "✅ **Thursday Schedule**:\n\n**7:00 AM** - Morning Gym Session (1h) 💪\n**9:30 AM** - Team Standup (30m)\n**10:30 AM** - Call with Grandpa (30m) 📞\n**1:00 PM** - Code Review: Auth Module (1h)\n\nGrandpa's Kinship Debt resets to 0 after today's call. Strong engineering day ahead!" }
+              ],
+
+              // Friday - Demo Day (PLANNING)
+              [day_p5_key]: [
+                  { id: 'p5_1', role: 'model', timestamp: createIso(day_p5, 8, 0), text: "🗓️ **PLANNING MODE** - Friday, Feb 27:\n\n**Fixed:**\n• 3:00 PM - Product Demo to Stakeholders (1h)\n\n**Flexible:**\n• Yoga Class (45m)\n• Interview Debrief Notes (1h)\n\n**Weekend Preview:**\n• Saturday: Dinner with Mom (6:30 PM) — Mom's Kinship Debt will be at 5 days by Saturday. This resets it perfectly.\n\nLight Friday with one high-visibility event. Yoga in the morning grounds you before the demo. Debrief notes can wait until after—capture impressions while fresh." },
+                  { id: 'p5_2', role: 'user', timestamp: createIso(day_p5, 8, 30), text: "I'll do yoga at 9 AM and write debrief notes right after the demo." },
+                  { id: 'p5_3', role: 'model', timestamp: createIso(day_p5, 8, 31), thought: "Yoga at 9 AM, demo at 3 PM, debrief notes at 4 PM right after. Good momentum and capture flow.", text: "✅ **Friday Schedule**:\n\n**9:00 AM** - Yoga Class (45m) 🧘\n**3:00 PM** - Product Demo to Stakeholders (1h) 📊\n**4:15 PM** - Interview Debrief Notes (1h)\n\nPerfect end to the work week. Tomorrow night's dinner with Mom is the cherry on top. 🍒" }
+              ],
+
+              // Saturday - Weekend Social (PLANNING)
+              [day_p6_key]: [
+                  { id: 'p6_1', role: 'model', timestamp: createIso(day_p6, 9, 0), text: "🗓️ **PLANNING MODE** - Saturday, Feb 28 — Week's End:\n\n**Fixed:**\n• 6:30 PM - Dinner with Mom (2h)\n\n**Flexible:**\n• Morning Run (5k, 30m)\n• Apartment Deep Clean (2h)\n\n**Relationship Wrap-up:**\n• Mom: Kinship Debt resets tonight ✓\n• Grandma & Grandpa: Both stable after this week ✓\n• Alex: Reset Tuesday (hike) ✓\n• Sarah: Reset Sunday (call) ✓\n\n🎉 **Week Complete**: Every relationship maintained, interview done, launch shipped. Afternoon is yours—clean the apartment early so you walk into dinner stress-free." },
+                  { id: 'p6_2', role: 'user', timestamp: createIso(day_p6, 9, 30), text: "What a week. Morning run, clean the apartment, then dinner with Mom. I'll take it." },
+                  { id: 'p6_3', role: 'model', timestamp: createIso(day_p6, 9, 31), thought: "User satisfied with the week. All relationships maintained, career goals hit, health sustained. Wrap with positive reinforcement.", text: "✅ **Saturday Plan**:\n\n**8:00 AM** - Morning Run (5k) 🏃\n**10:00 AM** - Apartment Deep Clean (2h)\n**6:30 PM** - Dinner with Mom 🍽️\n\n**Weekly Summary:**\n✅ Capital One interview completed\n✅ Phase 1 launched\n✅ All 6 relationships maintained\n✅ 5 workouts completed\n✅ Zero burnout\n\nYou orchestrated a phenomenal week. See you Sunday! 🚀" }
               ]
           };
       }
       
-      // In live mode, load from localStorage
+                    // In live mode, load from localStorage
       const saved = localStorage.getItem('life_messages');
       let history: ChatHistory = saved ? JSON.parse(saved) : {};
       
