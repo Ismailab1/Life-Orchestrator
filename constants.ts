@@ -340,7 +340,7 @@ export const INITIAL_LEDGER: RelationshipLedger = {
     category: 'Family',
     priority: 1,
     notes: "Stroke recovery. Improving mobility; best to call before 11am. Weekly PT sessions keeping her on track.",
-    last_contact: new Date(Date.now() - 86400000).toISOString(), // Last contact: yesterday (dinner with Mom)
+    last_contact: new Date(Date.now() - 86400000).toISOString(), // Last contact: yesterday (Saturday)
     status: 'Stable',
     image: 'https://picsum.photos/id/1062/200/200'
   },
@@ -350,7 +350,7 @@ export const INITIAL_LEDGER: RelationshipLedger = {
     category: 'Family',
     priority: 1,
     notes: "Early dementia. Easily confused in evenings; best for morning check-ins. Called 2 days ago, showed some confusion.",
-    last_contact: new Date(Date.now() - 172800000).toISOString(), // Last contact: 2 days ago (Tuesday morning call)
+    last_contact: new Date(Date.now() - 172800000).toISOString(), // Last contact: 2 days ago (Friday morning call)
     status: 'Needs Attention',
     image: 'https://picsum.photos/id/1005/200/200'
   },
@@ -359,8 +359,8 @@ export const INITIAL_LEDGER: RelationshipLedger = {
     relation: "Mother",
     category: 'Family',
     priority: 1,
-    notes: "Very supportive. Loves hearing about work wins. Had great dinner together recently.",
-    last_contact: new Date(Date.now() - 86400000).toISOString(), // Last contact: yesterday evening (dinner)
+    notes: "Very supportive. Loves hearing about work wins. Had great dinner together yesterday.",
+    last_contact: new Date(Date.now() - 86400000).toISOString(), // Last contact: yesterday evening (Saturday dinner)
     status: 'Stable',
     image: 'https://picsum.photos/id/1027/200/200'
   },
@@ -379,7 +379,7 @@ export const INITIAL_LEDGER: RelationshipLedger = {
     relation: "College Friend",
     category: 'Friend',
     priority: 3,
-    notes: "Haven't caught up in a while. Loves hiking. Planning Redwood Trail hike this Saturday!",
+    notes: "Haven't caught up in a while. Loves hiking. Planning Redwood Trail hike this Tuesday!",
     last_contact: new Date(Date.now() - 1209600000).toISOString(), // Last contact: ~2 weeks ago (hence the overdue status)
     status: 'Overdue',
     image: 'https://picsum.photos/id/1011/200/200'
@@ -390,7 +390,7 @@ export const INITIAL_LEDGER: RelationshipLedger = {
     category: 'Network',
     priority: 2,
     notes: "Direct manager at Capital One (if interview goes well). Important to maintain relationship post-interview.",
-    last_contact: new Date(Date.now() - 259200000).toISOString(), // Last contact: 3 days ago (initial phone screen)
+    last_contact: new Date(Date.now() - 259200000).toISOString(), // Last contact: 3 days ago (Thursday phone screen)
     status: 'Stable',
     image: 'https://picsum.photos/id/1074/200/200'
   }

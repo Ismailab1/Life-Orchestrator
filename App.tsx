@@ -423,69 +423,69 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
         };
         
         // Create dates for the full week (3 days ago to 3 days from now)
-        const day_m3 = getDate(-3); // Monday (3 days ago)
-        const day_m2 = getDate(-2); // Tuesday (2 days ago)
-        const day_m1 = getDate(-1); // Wednesday (yesterday)
-        const day_0 = getDate(0);   // Thursday (today)
-        const day_p1 = getDate(1);  // Friday (tomorrow)
-        const day_p2 = getDate(2);  // Saturday (day after tomorrow)
-        const day_p3 = getDate(3);  // Sunday
+        // Feb 22, 2026 is a Sunday
+        const day_m3 = getDate(-3); // Thursday (3 days ago)
+        const day_m2 = getDate(-2); // Friday (2 days ago)
+        const day_m1 = getDate(-1); // Saturday (yesterday)
+        const day_0 = getDate(0);   // Sunday (today)
+        const day_p1 = getDate(1);  // Monday (tomorrow)
+        const day_p2 = getDate(2);  // Tuesday (day after tomorrow)
+        const day_p3 = getDate(3);  // Wednesday
         
         return {
             fixed: [
-                // Monday - 3 days ago (REFLECTION - Completed)
+                // Thursday - 3 days ago (REFLECTION - Completed work day)
                 { id: 'w1_1', title: '✓ Team Standup (Engineering)', type: 'fixed', time: '9:30 AM', duration: '30m', priority: 'medium', category: 'Career', date: day_m3 },
                 { id: 'w1_2', title: '✓ Sprint Planning Meeting', type: 'fixed', time: '2:00 PM', duration: '1.5h', priority: 'high', category: 'Career', date: day_m3 },
                 
-                // Tuesday - 2 days ago (REFLECTION - Completed)
+                // Friday - 2 days ago (REFLECTION - Completed)
                 { id: 'w2_1', title: '✓ Call with Grandpa', type: 'fixed', time: '10:00 AM', duration: '30m', priority: 'high', category: 'Family', date: day_m2 },
-                { id: 'w2_2', title: '✓ Product Demo Rehearsal', type: 'fixed', time: '3:00 PM', duration: '1h', priority: 'medium', category: 'Career', date: day_m2 },
+                { id: 'w2_2', title: '✓ Product Demo to Stakeholders', type: 'fixed', time: '3:00 PM', duration: '1h', priority: 'high', category: 'Career', date: day_m2 },
                 
-                // Wednesday - Yesterday (REFLECTION - Completed)
-                { id: 'w3_1', title: '✓ Strategy Review w/ Board', type: 'fixed', time: '11:00 AM', duration: '2h', priority: 'high', category: 'Career', date: day_m1 },
-                { id: 'w3_2', title: '✓ Dinner with Mom', type: 'fixed', time: '6:30 PM', duration: '2h', priority: 'high', category: 'Family', date: day_m1 },
+                // Saturday - Yesterday (REFLECTION - Weekend, completed)
+                { id: 'w3_1', title: '✓ Dinner with Mom', type: 'fixed', time: '6:30 PM', duration: '2h', priority: 'high', category: 'Family', date: day_m1 },
                 
-                // Thursday - Today (ACTIVE)
+                // Sunday - Today (ACTIVE - Weekend day)
                 { id: 'w4_1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family', date: day_0 },
                 { id: 'w4_2', title: 'Interview with Capital One', type: 'fixed', time: '2:00 PM', duration: '1h', priority: 'high', category: 'Career', date: day_0 },
                 
-                // Friday - Tomorrow (PLANNING - Tentative)
+                // Monday - Tomorrow (PLANNING - Work week starts)
                 { id: 'w5_1', title: '[PLANNED] Project Launch: Phase 1', type: 'fixed', time: '9:00 AM', duration: '3h', priority: 'high', category: 'Career', date: day_p1 },
                 { id: 'w5_2', title: '[PLANNED] Team Retrospective', type: 'fixed', time: '4:00 PM', duration: '1h', priority: 'medium', category: 'Career', date: day_p1 },
                 
-                // Saturday - Day after tomorrow (PLANNING - Tentative)
+                // Tuesday - Day after tomorrow (PLANNING)
                 { id: 'w6_1', title: '[PLANNED] Hiking with Alex @ Redwood Trail', type: 'fixed', time: '8:00 AM', duration: '3h', priority: 'medium', category: 'Life', date: day_p2 },
                 
-                // Sunday (PLANNING - Tentative)
-                { id: 'w7_1', title: '[PLANNED] Family Brunch', type: 'fixed', time: '11:00 AM', duration: '2h', priority: 'high', category: 'Family', date: day_p3 }
+                // Wednesday (PLANNING)
+                { id: 'w7_1', title: '[PLANNED] Strategy Meeting', type: 'fixed', time: '11:00 AM', duration: '2h', priority: 'high', category: 'Career', date: day_p3 }
             ],
             flexible: [
-                // Monday - 3 days ago (REFLECTION - Completed)
+                // Thursday - 3 days ago (REFLECTION - Completed)
                 { id: 'wf1_1', title: '✓ Morning Gym Session', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_m3 },
                 { id: 'wf1_2', title: '✓ Code Review: Auth Module', type: 'flexible', duration: '1h', priority: 'medium', category: 'Career', date: day_m3 },
                 
-                // Tuesday - 2 days ago (REFLECTION - Completed)
+                // Friday - 2 days ago (REFLECTION - Completed)
                 { id: 'wf2_1', title: '✓ Yoga Class', type: 'flexible', duration: '45m', priority: 'medium', category: 'Health', date: day_m2 },
-                { id: 'wf2_2', title: '✓ Email Triage & Admin', type: 'flexible', duration: '45m', priority: 'low', category: 'Career', date: day_m2 },
+                { id: 'wf2_2', title: '✓ Prep for Capital One Interview', type: 'flexible', duration: '1.5h', priority: 'high', category: 'Career', date: day_m2 },
                 
-                // Wednesday - Yesterday (REFLECTION - Completed)
-                { id: 'wf3_1', title: '✓ Quick 5k Run', type: 'flexible', duration: '30m', priority: 'medium', category: 'Health', date: day_m1 },
-                { id: 'wf3_2', title: '✓ Prep for Capital One Interview', type: 'flexible', duration: '1.5h', priority: 'high', category: 'Career', date: day_m1 },
+                // Saturday - Yesterday (REFLECTION - Weekend, completed)
+                { id: 'wf3_1', title: '✓ Morning Run (5k)', type: 'flexible', duration: '30m', priority: 'medium', category: 'Health', date: day_m1 },
+                { id: 'wf3_2', title: '✓ Apartment Deep Clean', type: 'flexible', duration: '2h', priority: 'low', category: 'Life', date: day_m1 },
                 
-                // Thursday - Today (ACTIVE)
+                // Sunday - Today (ACTIVE)
                 { id: 'wf4_1', title: 'Python Debugging Practice', type: 'flexible', duration: '2h', priority: 'medium', category: 'Career', date: day_0 },
                 { id: 'wf4_2', title: 'Gym / Cardio', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_0 },
                 
-                // Friday - Tomorrow (PLANNING - To Be Scheduled)
-                { id: 'wf5_1', title: 'Grocery Run (Meal Prep)', type: 'flexible', duration: '1h', priority: 'low', category: 'Life', date: day_p1 },
-                { id: 'wf5_2', title: 'Documentation Write-up', type: 'flexible', duration: '1.5h', priority: 'low', category: 'Career', date: day_p1 },
+                // Monday - Tomorrow (PLANNING - Work week)
+                { id: 'wf5_1', title: 'Documentation Write-up', type: 'flexible', duration: '1.5h', priority: 'medium', category: 'Career', date: day_p1 },
+                { id: 'wf5_2', title: 'Evening Gym Session', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_p1 },
                 
-                // Saturday - Day after tomorrow (PLANNING - To Be Scheduled)
-                { id: 'wf6_1', title: 'Apartment Deep Clean', type: 'flexible', duration: '2h', priority: 'low', category: 'Life', date: day_p2 },
+                // Tuesday - Day after tomorrow (PLANNING)
+                { id: 'wf6_1', title: 'Grocery Run (Meal Prep)', type: 'flexible', duration: '1h', priority: 'low', category: 'Life', date: day_p2 },
                 { id: 'wf6_2', title: 'Read: "Range" by David Epstein', type: 'flexible', duration: '1h', priority: 'low', category: 'Life', date: day_p2 },
                 
-                // Sunday (PLANNING - To Be Scheduled)
-                { id: 'wf7_1', title: 'Meal Prep for Next Week', type: 'flexible', duration: '2h', priority: 'medium', category: 'Health', date: day_p3 },
+                // Wednesday (PLANNING)
+                { id: 'wf7_1', title: 'Meal Prep for Week', type: 'flexible', duration: '2h', priority: 'medium', category: 'Health', date: day_p3 },
                 { id: 'wf7_2', title: 'Review Weekly Goals', type: 'flexible', duration: '30m', priority: 'medium', category: 'Career', date: day_p3 }
             ]
         };
