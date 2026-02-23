@@ -70,7 +70,7 @@ export interface RecurrenceRule {
  * 
  * Category system (Career/Life/Health/Family) enables balanced scheduling and analytics.
  * Duration stored as string (e.g., "1h", "30m") for human readability and UI flexibility.
- */ */
+ */
 export interface Person {
   name: string;
   relation: string; // e.g., "Grandmother", "Best Friend", "College Roommate"
@@ -273,6 +273,7 @@ export interface UpdateRelationshipArgs {
   status_level: 'Stable' | 'Needs Attention' | 'Critical' | 'Overdue';
   category?: 'Family' | 'Friend' | 'Network'; // Optional, inferred if new
   relation?: string; // Optional, useful for new contacts
+  confirmed?: boolean; // true = user explicitly asked to add; false/omitted = inferred, show proposal card
 }
 
 export interface StorageStats {

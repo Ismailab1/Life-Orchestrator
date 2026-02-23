@@ -200,7 +200,8 @@ const updateRelationshipStatusTool: FunctionDeclaration = {
       notes_update: { type: SchemaType.STRING },
       status_level: { type: SchemaType.STRING, enum: ['Stable', 'Needs Attention', 'Critical', 'Overdue'], format: 'enum' },
       category: { type: SchemaType.STRING, enum: ['Family', 'Friend', 'Network'], format: 'enum' },
-      relation: { type: SchemaType.STRING }
+      relation: { type: SchemaType.STRING },
+      confirmed: { type: SchemaType.BOOLEAN, description: 'Set to true ONLY when the user has explicitly and directly instructed you to add this person (e.g., "add Timmy", "I want to track Sarah", "add both of them"). Set to false or omit when you are inferring/proposing based on conversation context alone.' }
     },
     required: ['person_name', 'notes_update', 'status_level'],
   },

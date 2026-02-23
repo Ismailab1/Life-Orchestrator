@@ -1151,8 +1151,14 @@ ${memoryContext}`);
                 priority: 3, notes: args.notes_update, status: args.status_level, last_contact: contactDate,
                 image: `https://ui-avatars.com/api/?name=${args.person_name}&background=random`
             };
-            pendingContactRef.current.push(newPerson);
-            return `Proposal to add ${args.person_name} prepared.`;
+            if (args.confirmed) {
+                // User explicitly asked to add — skip the proposal card and add directly
+                await handleAddPerson(newPerson);
+                return `Added ${args.person_name} to the Kinship Ledger.`;
+            } else {
+                pendingContactRef.current.push(newPerson);
+                return `Proposal to add ${args.person_name} prepared.`;
+            }
         } else {
             setLedger(prev => ({ ...prev, [matchedKey]: { ...(prev[matchedKey] as Person), notes: args.notes_update, status: args.status_level, last_contact: contactDate } }));
             return `Updated ${args.person_name}'s ledger.`;
@@ -1511,12 +1517,28 @@ ${memoryContext}`);
   const handleDeletePerson = (name: string) => setLedger(prev => { const newL = { ...prev }; const key = Object.keys(newL).find(k => (newL[k] as Person).name === name); if (key) delete newL[key]; return newL; });
 
   const acceptContact = (person: Person) => {
-    handleAddPerson(person); // Add to ledger - this calls handleSendMessage internally
-    updateCurrentDayMessages(prev => prev.map(msg => msg.contactProposals?.includes(person) ? { ...msg, contactProposals: undefined } : msg));
+    handleAddPerson(person);
+    updateCurrentDayMessages(prev => prev.map(msg => {
+      if (!msg.contactProposals?.includes(person)) return msg;
+      const remaining = msg.contactProposals.filter(p => p !== person);
+      return { ...msg, contactProposals: remaining.length > 0 ? remaining : undefined };
+    }));
+  };
+  const acceptAllContacts = (persons: Person[]) => {
+    persons.forEach(p => handleAddPerson(p));
+    updateCurrentDayMessages(prev => prev.map(msg => {
+      if (!msg.contactProposals) return msg;
+      const remaining = msg.contactProposals.filter(p => !persons.includes(p));
+      return { ...msg, contactProposals: remaining.length > 0 ? remaining : undefined };
+    }));
   };
   const rejectContact = (person: Person) => { 
       handleSendMessage(`Understood.`, null); 
-      updateCurrentDayMessages(prev => prev.map(msg => msg.contactProposals?.includes(person) ? { ...msg, contactProposals: undefined } : msg)); 
+      updateCurrentDayMessages(prev => prev.map(msg => {
+        if (!msg.contactProposals?.includes(person)) return msg;
+        const remaining = msg.contactProposals.filter(p => p !== person);
+        return { ...msg, contactProposals: remaining.length > 0 ? remaining : undefined };
+      })); 
   };
   
   const acceptProposal = async (proposal: OrchestrationProposal) => {
@@ -1827,6 +1849,7 @@ ${memoryContext}`);
                   }
                 }}
                 onAcceptContact={acceptContact} 
+                onAcceptAllContacts={acceptAllContacts}
                 onRejectContact={rejectContact}
                 processingProposal={processingProposal} 
                 storageStats={storageStats}
