@@ -24,7 +24,7 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
               {isPrivacy ? 'Privacy Policy' : 'Terms of Service'}
             </h1>
             <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-1">
-              Last Updated: February 22, 2026
+              Last Updated: February 22, 2026 (v1.5)
             </p>
           </div>
           <button 
@@ -86,6 +86,9 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
                 </ul>
                 <p className="mt-4">
                   The AI processes your input to generate temporal-aware orchestrations (Reflection/Active/Planning modes), capacity warnings when daily workload exceeds 10 hours, and relationship completion verification when Kinship Debt thresholds are crossed.
+                </p>
+                <p className="mt-4">
+                  <strong>Session Isolation:</strong> AI context is automatically reset when you navigate between dates. This prevents cross-date data leakage—the AI operating on February 22nd cannot accidentally reference conversations or tasks from February 23rd's session. Each date maintains its own isolated context window.
                 </p>
               </section>
 
@@ -175,6 +178,9 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
                 </ul>
                 <p className="mt-4">
                   <strong>You are solely responsible</strong> for verifying proposed schedules, relationship recommendations, and capacity assessments before committing to meetings, personal events, or important decisions. The AI is a decision support tool, not a replacement for human judgment.
+                </p>
+                <p className="mt-4">
+                  <strong>Proposal Revision:</strong> When you decline an orchestration proposal using the "Revise" button, the AI will engage in a conversational dialogue to understand your concerns and preferences before generating a revised schedule. This iterative refinement process helps align orchestrations with your actual needs.
                 </p>
               </section>
 

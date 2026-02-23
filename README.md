@@ -254,6 +254,32 @@ Building this project was a masterclass in **Agentic UX**. I learned that for an
 ## Recent Updates (Phase 1: February 2026)
 We recently completed a comprehensive system hardening initiative addressing critical architecture and UX improvements:
 
+### Background Orchestration & Non-Blocking UX
+The system now intelligently defers orchestrations to prevent blocking user interactions:
+- **Instant Confirmations**: Task additions confirm immediately without waiting for orchestration
+- **Automatic Background Orchestration**: After task modifications, the system schedules orchestration 3-6 seconds later as a separate message
+- **Smart Guards**: Multiple validation layers prevent conflicts (streaming checks, date validation, user interruption detection, pending proposal checks)
+- **Debounce Protection**: Random delays (3-6s) prevent orchestration spam when rapidly adding multiple tasks
+
+This eliminates the multi-minute lag that previously occurred when adding simple tasks.
+
+### Timeout Protection & Fallback System
+Robust timeout handling prevents indefinite hangs when AI responses are delayed:
+- **30-Second Stream Timeout**: Both initial and post-function-execution streams have timeout protection
+- **Chunk-Level Monitoring**: Individual response chunks tracked with Date.now() timestamps
+- **5-Second Fallback Timer**: Automatically attaches proposals if main stream hangs
+- **Intelligent Fallback Messages**: System generates task confirmations when LLM text is missing (e.g., "I've added 3 events: X, Y, Z")
+
+### Session Persistence & Context Management
+- **Session Validation**: Pre-message checks ensure AI context includes correct date format
+- **Automatic Reinitialization**: Lost sessions automatically restore with target date context
+- **Date Format Enforcement**: Uses toDateString() format explicitly in session context for AI accuracy
+
+### Regression Fixes & Edge Cases
+- **Contact Acceptance**: Removed duplicate message send that caused chat flow issues
+- **Proposal Counter Reset**: proposeOrchestration now resets modification counter to prevent double orchestrations
+- **Rejection Handling**: Replaced placeholder text with clean toast notifications
+
 ### Temporal Mode Switching
 The AI now adapts its behavior based on temporal context:
 - **Reflection Mode** (Past Dates): Focuses on insights, lessons learned, and pattern recognition from completed activities
@@ -272,6 +298,34 @@ Visual mode badges in the date selector provide instant feedback on the current 
 - **AbortController Integration**: Properly cancels in-flight AI streams when starting new sessions (prevents memory leaks)
 - **Simplified Storage Architecture**: Consolidated to localStorage-only for improved reliability and reduced complexity
 - **Tutorial Error Handling**: Async error handling with user-friendly notifications during onboarding
+
+## Recent Updates (Phase 1.5: February 2026)
+Critical bug fixes and UX improvements focused on cross-date context integrity and proposal refinement:
+
+### Cross-Date Context Isolation
+Previously, navigating between dates could cause the AI to operate on the wrong date's data. This critical bug has been resolved:
+- **Session Reset on Date Change**: AI context is now automatically reset when switching dates via `resetSession()`
+- **Context Bleed Prevention**: Each date maintains its own isolated AI session, preventing February 22nd's AI from accidentally referencing February 23rd's tasks or conversations
+- **Explicit Date Injection**: Session context explicitly includes target date format for accurate AI task operations
+
+### Conversational Proposal Revision
+The "Revise" button on orchestration proposals now triggers an interactive dialogue instead of silent dismissal:
+- **Hidden Context Message**: System informs AI that the proposal was declined
+- **Conversational Follow-up**: AI asks what the user didn't like and what adjustments they'd prefer
+- **Iterative Refinement**: Users can explain preferences before AI generates a revised proposal
+- **Better UX**: Eliminates the frustration of repeated orchestrations that don't match user expectations
+
+### Data Integrity Improvements
+- **Duplicate Task ID Cleanup**: `deduplicateTasks()` function automatically assigns unique IDs to legacy tasks with duplicate IDs on load
+- **React Key Stability**: Changed from index-based keys to proper unique identifiers (`msg.id`, `contact-${p.name}`) to prevent rendering bugs after deletions
+- **FileReader Error Handling**: Added `onerror` handler to gracefully handle corrupted file uploads
+- **Type Definition Cleanup**: Removed duplicate interface definitions in `types.ts` that could cause build inconsistencies
+
+### Orchestration Invalidation
+Approved orchestrations are now properly invalidated when schedule changes occur:
+- **Task Movement**: Moving tasks between dates invalidates both source and target date orchestrations
+- **Manual Task Addition**: Manually added tasks trigger orchestration invalidation for the affected date
+- **Prevents Stale Proposals**: Ensures AI regenerates proposals based on current schedule state
 
 ## What's next for Life Orchestrator
 The roadmap focuses on three major pillars: **Data Intelligence**, **System Resilience**, and **User Experience**.

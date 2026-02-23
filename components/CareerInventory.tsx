@@ -48,11 +48,37 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { LifeInventory, Task } from '../types';
 
+/**
+ * Convert 24-hour time format to 12-hour format with AM/PM
+ * @param time - Time string like "09:00", "15:00", "21:00", or already formatted like "9:00 AM"
+ * @returns Formatted time like "9:00 AM", "3:00 PM", "9:00 PM"
+ */
+const formatTimeTo12Hour = (time: string | undefined): string => {
+  if (!time) return '';
+  
+  // If already has AM/PM, return as-is
+  if (time.includes('AM') || time.includes('PM') || time.includes('am') || time.includes('pm')) {
+    return time;
+  }
+  
+  // Parse 24-hour format
+  const [hoursStr, minutesStr] = time.split(':');
+  const hours = parseInt(hoursStr, 10);
+  const minutes = minutesStr || '00';
+  
+  // Convert to 12-hour format
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  
+  return `${hours12}:${minutes} ${period}`;
+};
+
 interface Props {
   inventory: LifeInventory;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
   onAddTask?: (task: Task) => void; // Optional for backward compatibility, though App.tsx provides it
+  onOrchestrate?: () => void; // Trigger AI orchestration of the current day
 }
 
 const InfoTooltip = ({ text }: { text: string }) => {
@@ -328,7 +354,7 @@ const TaskItem: React.FC<{ task: Task; onUpdate: (t: Task) => void; onDelete: (i
             )}
           </div>
           <div className="text-xs text-slate-500 flex items-center mt-0.5">
-              {task.time ? <span className="font-mono bg-white px-1 rounded border border-slate-100 mr-2">{task.time}</span> : null}
+              {task.time ? <span className="font-mono bg-white px-1 rounded border border-slate-100 mr-2">{formatTimeTo12Hour(task.time)}</span> : null}
               <span>{task.duration}</span>
               {task.category && (
                   <span className="ml-2 px-1.5 py-0.5 bg-white rounded border border-slate-100 text-[10px] uppercase text-slate-400">
@@ -345,7 +371,7 @@ const TaskItem: React.FC<{ task: Task; onUpdate: (t: Task) => void; onDelete: (i
   );
 };
 
-export const CareerInventoryView: React.FC<Props> = ({ inventory, onUpdateTask, onDeleteTask, onAddTask }) => {
+export const CareerInventoryView: React.FC<Props> = ({ inventory, onUpdateTask, onDeleteTask, onAddTask, onOrchestrate }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newTask, setNewTask] = useState<Partial<Task>>({
       title: '',
@@ -385,15 +411,27 @@ export const CareerInventoryView: React.FC<Props> = ({ inventory, onUpdateTask, 
           Life Inventory
           <InfoTooltip text="Your dynamic task list. The AI balances these items against your personal relationship context to ensure neither your career ambitions nor your loved ones are neglected." />
         </h2>
-        {onAddTask && (
+        <div className="flex gap-2">
+          {onOrchestrate && (
             <button 
-                 onClick={() => setIsAdding(!isAdding)}
-                 className="flex items-center gap-1 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-200 hover:border-indigo-300 text-xs font-bold px-3 py-1.5 rounded-md transition-all shadow-sm"
-             >
-                 <svg className={`w-3.5 h-3.5 transition-transform ${isAdding ? 'rotate-45' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                 {isAdding ? 'Cancel' : 'Add Task'}
+              onClick={onOrchestrate}
+              className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-md transition-all shadow-sm"
+              title="Ask AI to reorganize your entire day based on current tasks"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              Orchestrate Day
             </button>
-        )}
+          )}
+          {onAddTask && (
+            <button 
+              onClick={() => setIsAdding(!isAdding)}
+              className="flex items-center gap-1 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-200 hover:border-indigo-300 text-xs font-bold px-3 py-1.5 rounded-md transition-all shadow-sm"
+            >
+              <svg className={`w-3.5 h-3.5 transition-transform ${isAdding ? 'rotate-45' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              {isAdding ? 'Cancel' : 'Add Task'}
+            </button>
+          )}
+        </div>
       </div>
       
       {/* Scrollable Content Area */}

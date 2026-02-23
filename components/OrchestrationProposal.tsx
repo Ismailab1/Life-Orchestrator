@@ -48,52 +48,52 @@ interface Props {
 
 export const OrchestrationProposalView: React.FC<Props> = ({ proposal, onAccept, onReject, isProcessing = false }) => {
   return (
-    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-5 text-white shadow-lg border border-slate-700 animate-fade-in w-full max-w-2xl mx-auto my-2">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-bold flex items-center text-emerald-400">
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+    <div className="bg-slate-50 rounded-lg p-4 shadow-sm border border-slate-200 animate-fade-in">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-bold flex items-center text-emerald-600">
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
           Proposed Orchestration
         </h3>
-        <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-mono border border-slate-600">GEMINI 3</span>
+        <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-mono border border-slate-300">GEMINI 3</span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {/* Collapsible Strategic Reasoning */}
-        <div className="bg-slate-800/50 rounded-lg border border-slate-700/50 overflow-hidden">
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
             <details className="group">
-                <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-700/30 transition-colors select-none">
+                <summary className="flex items-center justify-between p-2.5 cursor-pointer hover:bg-slate-50 transition-colors select-none">
                     <div className="flex items-center gap-2">
-                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
-                         <h4 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Strategic Reasoning</h4>
+                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                         <h4 className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Strategic Reasoning</h4>
                     </div>
-                    <svg className="w-4 h-4 text-slate-500 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-slate-400 transition-transform duration-200 group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                 </summary>
-                <div className="px-3 pb-3 pt-0">
-                    <div className="pt-2 border-t border-slate-700/50">
-                        <p className="text-sm text-slate-200 leading-relaxed italic">"{proposal.reasoning}"</p>
+                <div className="px-2.5 pb-2.5 pt-0">
+                    <div className="pt-2 border-t border-slate-200">
+                        <p className="text-xs text-slate-700 leading-relaxed italic">"{proposal.reasoning}"</p>
                     </div>
                 </div>
             </details>
         </div>
 
-        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-            <h4 className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Optimized Timeline</h4>
-            <div className="text-sm font-mono text-emerald-300 whitespace-pre-wrap">
+        <div className="bg-white p-3 rounded-lg border border-slate-200">
+            <h4 className="text-[10px] font-semibold text-slate-600 uppercase mb-1.5">Optimized Timeline</h4>
+            <div className="text-xs font-mono text-emerald-700 whitespace-pre-wrap leading-relaxed">
                 {proposal.optimized_timeline}
             </div>
         </div>
 
-        <div className="flex space-x-3 mt-4 pt-2 border-t border-slate-700/50">
+        <div className="flex space-x-2 mt-3 pt-2 border-t border-slate-200">
             <button 
                 onClick={onAccept}
                 disabled={isProcessing}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 disabled:cursor-not-allowed text-white py-2 rounded-lg font-medium text-sm transition-colors shadow-sm flex items-center justify-center gap-2"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-300 disabled:cursor-not-allowed text-white py-2 rounded-md font-medium text-xs transition-colors shadow-sm flex items-center justify-center gap-2"
             >
                 {isProcessing ? (
                     <>
-                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -104,11 +104,11 @@ export const OrchestrationProposalView: React.FC<Props> = ({ proposal, onAccept,
             <button 
                 onClick={onReject}
                 disabled={isProcessing}
-                className="flex-1 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:cursor-not-allowed text-slate-200 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm flex items-center justify-center gap-2"
+                className="flex-1 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-2 rounded-md font-medium text-xs transition-colors shadow-sm flex items-center justify-center gap-2"
             >
                 {isProcessing ? (
                     <>
-                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>

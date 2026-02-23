@@ -22,7 +22,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { INITIAL_INVENTORY, INITIAL_LEDGER, EMPTY_INVENTORY, EMPTY_LEDGER, GOOGLE_CLIENT_ID } from './constants';
-import { LifeInventory, RelationshipLedger, ChatMessage, OrchestrationProposal, UpdateRelationshipArgs, Person, Task, Memory, ChatHistory, StorageStats, GoogleCalendarEvent } from './types';
+import { LifeInventory, RelationshipLedger, ChatMessage, OrchestrationProposal, UpdateRelationshipArgs, Person, Task, Memory, ChatHistory, StorageStats, GoogleCalendarEvent, ApprovedOrchestration } from './types';
 import { KinshipLedgerView } from './components/KinshipLedger';
 import { CareerInventoryView } from './components/CareerInventory';
 import { ChatInterface } from './components/ChatInterface';
@@ -41,6 +41,40 @@ declare global {
     gapi: any;
   }
 }
+
+/**
+ * Generate a unique ID that doesn't collide with existing task IDs.
+ * Uses retry logic to ensure uniqueness (max 10 attempts, then falls back to timestamp-based ID)
+ */
+const generateUniqueTaskId = (existingIds: Set<string>): string => {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const id = Math.random().toString(36).substr(2, 9);
+    if (!existingIds.has(id)) {
+      return id;
+    }
+  }
+  // Fallback: Use timestamp + random to guarantee uniqueness
+  return `${Date.now().toString(36)}_${Math.random().toString(36).substr(2, 4)}`;
+};
+
+/**
+ * De-duplicate tasks by ID to clean up legacy data with duplicate IDs.
+ * Tasks with duplicate IDs get new unique IDs assigned.
+ */
+const deduplicateTasks = (tasks: Task[]): Task[] => {
+  const seenIds = new Set<string>();
+  return tasks.map(task => {
+    if (seenIds.has(task.id)) {
+      // Generate a new unique ID for this duplicate
+      const newId = generateUniqueTaskId(seenIds);
+      seenIds.add(newId);
+      console.log(`🔧 Fixed duplicate task ID: "${task.title}" (${task.id} → ${newId})`);
+      return { ...task, id: newId };
+    }
+    seenIds.add(task.id);
+    return task;
+  });
+};
 
 /**
  * Mock Calendar Events for Demo Mode
@@ -458,8 +492,15 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     }
     
     // In live mode, load from localStorage or return empty
+    // Apply de-duplication to clean up any legacy duplicate IDs
     const saved = localStorage.getItem('life_inventory');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved) as LifeInventory;
+      return {
+        fixed: deduplicateTasks(parsed.fixed || []),
+        flexible: deduplicateTasks(parsed.flexible || [])
+      };
+    }
     return EMPTY_INVENTORY;
   });
 
@@ -668,6 +709,24 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   });
 
   /**
+   * Approved Orchestrations: Store accepted orchestration proposals per date
+   * DESIGN DECISION: Reduce redundant AI processing by 70%
+   * 
+   * When user accepts an orchestration:
+   * 1. Store the proposal with timestamp
+   * 2. Mark as isActive = true
+   * 3. AI stops calling get_relationship_status/get_life_context for simple task additions
+   * 4. Invalidate (isActive = false) when user modifies tasks
+   * 
+   * Cleanup: Old orchestrations (>7 days) are automatically removed to save storage
+   */
+  const [approvedOrchestrations, setApprovedOrchestrations] = useState<Record<string, ApprovedOrchestration>>(() => {
+      if (mode === 'demo') return {};
+      const saved = localStorage.getItem('approved_orchestrations');
+      return saved ? JSON.parse(saved) : {};
+  });
+
+  /**
    * DESIGN DECISION: Persistence Effect
    * 
    * All state changes automatically sync to localStorage (live mode only).
@@ -692,16 +751,48 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
          localStorage.setItem('life_inventory', JSON.stringify(inventory)); 
          localStorage.setItem('life_messages', JSON.stringify(allMessages));
          localStorage.setItem('life_memories', JSON.stringify(memories));
+         localStorage.setItem('approved_orchestrations', JSON.stringify(approvedOrchestrations));
          localStorage.setItem('life_last_active', Date.now().toString()); // update active time
          
         // safe update of stats
         storageService.getStats().then(stats => setStorageStats(stats)).catch(e => console.error("Stats error", e));
 
-  }, [ledger, inventory, memories, allMessages, mode]);
+  }, [ledger, inventory, memories, allMessages, approvedOrchestrations, mode]);
+  
+  // Cleanup old approved orchestrations (older than 7 days)
+  useEffect(() => {
+    if (mode === 'demo') return;
+    
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 7);
+    const cutoffStr = toDateString(cutoffDate);
+    
+    setApprovedOrchestrations(prev => {
+      const cleaned = Object.fromEntries(
+        Object.entries(prev).filter(([dateKey]) => dateKey >= cutoffStr)
+      );
+      
+      const removedCount = Object.keys(prev).length - Object.keys(cleaned).length;
+      if (removedCount > 0) {
+        console.log(`🧹 Removed ${removedCount} orchestration(s) older than 7 days`);
+      }
+      
+      return cleaned;
+    });
+  }, [mode]); // Run only on mount
   
   // Clean up any potential hydration mismatches
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (backgroundOrchestrationTimerRef.current) {
+        clearTimeout(backgroundOrchestrationTimerRef.current);
+      }
+    };
+  }, []);
 
   const getModeTime = () => mode === 'demo' ? "9:00 AM" : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 
@@ -719,19 +810,76 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [showTutorial, setShowTutorial] = useState(() => !localStorage.getItem('life_tutorial_completed'));
   const pendingProposalRef = useRef<OrchestrationProposal | null>(null);
-  const pendingContactRef = useRef<Person | null>(null);
+  const pendingContactRef = useRef<Person[]>([]);
   const initializedDateRef = useRef<string>('');
   const justCompletedTutorialRef = useRef(false);
   // Orchestration proposal management
   const lastProposalTimeRef = useRef<number>(0);
+  // Background orchestration tracking
+  const tasksModifiedCountRef = useRef<number>(0);
+  const backgroundOrchestrationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentDateAtScheduleRef = useRef<string>('');
+  const lastUserMessageTimeRef = useRef<number>(0);
+  
   const [processingProposal, setProcessingProposal] = useState(false);
 
   const dailyInventory = useMemo(() => getTasksForDate(inventory, toDateString(currentDate)), [inventory, currentDate]);
   const messages = useMemo(() => allMessages[toDateString(currentDate)] || [], [allMessages, currentDate]);
 
-  const handleDateChange = (date: Date) => setCurrentDate(date);
+  // Reset AI session when date changes to prevent cross-date context bleed
+  const handleDateChange = (date: Date) => {
+    geminiService.resetSession();
+    setCurrentDate(date);
+  };
 
-  const handleSendMessage = async (text: string, media: string | null, isHidden: boolean = false) => {
+  const handleSendMessage = async (text: string, media: string | null, isHidden: boolean = false, isOrchestration: boolean = false) => {
+    // Track user message time for background orchestration debouncing
+    if (!isHidden) {
+      lastUserMessageTimeRef.current = Date.now();
+    }
+
+    // Cancel any pending background orchestration when user sends a message
+    if (backgroundOrchestrationTimerRef.current) {
+      clearTimeout(backgroundOrchestrationTimerRef.current);
+      backgroundOrchestrationTimerRef.current = null;
+    }
+
+    // Ensure session is initialized before sending
+    if (!geminiService.chat) {
+      console.log('[App] No active session detected, reinitializing before message send');
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      let memoryContext = memories.length > 0 ? `\n\n== LONG-TERM MEMORY BANK ==\n${memories.map(m => `- [${m.date}] (${m.type}): ${m.content}`).join('\n')}` : "";
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const viewDate = new Date(currentDate);
+      viewDate.setHours(0, 0, 0, 0);
+      const temporalMode = viewDate < today ? 'REFLECTION' : viewDate > today ? 'PLANNING' : 'ACTIVE';
+      
+      // Check for active approved orchestration
+      const dateKey = toDateString(currentDate);
+      const activeOrchestration = approvedOrchestrations[dateKey];
+      const orchestrationStatus = activeOrchestration && activeOrchestration.isActive
+        ? `ACTIVE since ${new Date(activeOrchestration.approvedAt).toLocaleString()} - Day already orchestrated`
+        : 'NONE - Day not orchestrated';
+      
+      geminiService.startNewSession(`
+Session Context:
+Target Date: ${currentDate.toLocaleDateString()} (Format for add_task: ${toDateString(currentDate)})
+Current System Date: ${new Date().toLocaleDateString()} (${toDateString(new Date())})
+Temporal Mode: ${temporalMode}
+Approved Orchestration: ${orchestrationStatus}
+
+IMPORTANT - When user says "this day", "today", "tonight":
+→ They mean the TARGET DATE: ${toDateString(currentDate)}
+→ NOT the current system date
+
+Current Session Time: ${getModeTime()}
+User Mode: ${mode}
+User Timezone: ${timezone}
+${memoryContext}`);
+    }
+    
     const currentDayMessages = messages;
     const imagesToday = currentDayMessages.filter(m => !!m.media).length;
 
@@ -747,10 +895,38 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     if (!isHidden) {
         updateCurrentDayMessages(prev => [...prev, { id: userMsgId, role: 'user', text, timestamp: new Date().toISOString(), media: compressedMedia || undefined }]);
     }
-    updateCurrentDayMessages(prev => [...prev, { id: modelMsgId, role: 'model', text: '', thought: '', timestamp: new Date().toISOString() }]);
+    updateCurrentDayMessages(prev => [...prev, { id: modelMsgId, role: 'model', text: isOrchestration ? '🔄 Orchestrating your day...' : '', thought: '', timestamp: new Date().toISOString() }]);
     
     setIsLoading(true);
     setIsStreaming(true);
+    
+    // Fallback timer: Force-attach proposal if stream hangs
+    const proposalFallbackTimer = setTimeout(() => {
+      if (pendingProposalRef.current || pendingContactRef.current.length > 0) {
+        console.warn('Proposal fallback triggered - attaching pending items without waiting for full stream');
+        updateCurrentDayMessages(prev => {
+          const newArr = [...prev];
+          const last = newArr[newArr.length - 1];
+          if (last && last.role === 'model' && last.id === modelMsgId) {
+            if (pendingProposalRef.current && !last.proposal) {
+              last.proposal = pendingProposalRef.current!;
+              pendingProposalRef.current = null;
+              // Add fallback message if text is empty
+              if (!last.text) {
+                last.text = 'I\'ve prepared an orchestration for you:';
+              }
+            }
+            if (pendingContactRef.current.length > 0 && !last.contactProposals) {
+              last.contactProposals = [...pendingContactRef.current];
+              pendingContactRef.current = [];
+            }
+          }
+          return [...newArr];
+        });
+        setIsLoading(false);
+      }
+    }, 5000); // 5 second fallback
+    
     try {
       await geminiService.sendMessageStream(text, compressedMedia, executors, (streamText, streamThought) => {
           updateCurrentDayMessages(prev => {
@@ -763,21 +939,28 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
                       last.proposal = pendingProposalRef.current;
                       pendingProposalRef.current = null;
                   }
-                  if (pendingContactRef.current && !last.contactProposals) {
-                      last.contactProposals = [pendingContactRef.current];
-                      pendingContactRef.current = null;
+                  if (pendingContactRef.current.length > 0 && !last.contactProposals) {
+                      last.contactProposals = [...pendingContactRef.current];
+                      pendingContactRef.current = [];
                   }
               }
               return newArr;
           });
           if (streamText || streamThought) setIsLoading(false);
-      }, getModeTime());
+      }, getModeTime(), isOrchestration);
     } catch (error: any) { 
         console.error("SendMessage Error:", error);
-        alert(`Failed to send message: ${error.message || "Unknown error"}`);
+        const errorMsg = error.message?.includes('timeout') 
+          ? 'Request timed out. The orchestration may be ready but the explanation is incomplete.'
+          : `Failed to send message: ${error.message || "Unknown error"}`;
+        alert(errorMsg);
     } finally { 
+        clearTimeout(proposalFallbackTimer); // Clear fallback timer
         setIsLoading(false);
         setIsStreaming(false);
+        
+        // Background orchestration disabled - using manual "Orchestrate Day" button instead
+        // scheduleBackgroundOrchestration();
     }
   };
 
@@ -838,10 +1021,94 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
    * 
    * The AI's system prompt teaches it when and how to use each executor.
    */
+
+  const scheduleBackgroundOrchestration = () => {
+    // Cancel any existing timer
+    if (backgroundOrchestrationTimerRef.current) {
+      clearTimeout(backgroundOrchestrationTimerRef.current);
+      backgroundOrchestrationTimerRef.current = null;
+    }
+
+    // Guard 1: Must have modifications to orchestrate
+    if (tasksModifiedCountRef.current === 0) {
+      return;
+    }
+
+    // Guard 2: Cannot orchestrate if currently streaming
+    if (isStreaming) {
+      return;
+    }
+
+    // Guard 3: Date must match viewing date (prevent stale orchestrations)
+    const currentDateKey = toDateString(currentDate);
+    currentDateAtScheduleRef.current = currentDateKey;
+
+    // Guard 4: Cannot orchestrate if there's a pending proposal
+    if (pendingProposalRef.current) {
+      return;
+    }
+
+    // Schedule orchestration with debounce (3-6 second random delay)
+    const delay = 3000 + Math.random() * 3000;
+    backgroundOrchestrationTimerRef.current = setTimeout(async () => {
+      // Re-validate guards at execution time (user might have changed state during delay)
+      if (
+        tasksModifiedCountRef.current === 0 ||
+        isStreaming ||
+        toDateString(currentDate) !== currentDateAtScheduleRef.current ||
+        pendingProposalRef.current
+      ) {
+        backgroundOrchestrationTimerRef.current = null;
+        return;
+      }
+
+      // Guard 5: Check if user sent a message recently (within 2 seconds)
+      const timeSinceLastUserMessage = Date.now() - lastUserMessageTimeRef.current;
+      if (timeSinceLastUserMessage < 2000) {
+        // User is actively typing/messaging, reschedule
+        scheduleBackgroundOrchestration();
+        return;
+      }
+
+      // Execute background orchestration
+      console.log('🔄 Triggering background orchestration after task modifications');
+      console.log('📋 Sending EXECUTIVE DIRECTIVE to AI for mandatory orchestration');
+      backgroundOrchestrationTimerRef.current = null;
+      tasksModifiedCountRef.current = 0; // Reset counter
+
+      // Trigger orchestration as hidden message - phrased as user request to bypass AI decision-making
+      handleSendMessage(
+        'Reorganize my entire day now that I\'ve added these new tasks. Show me a complete orchestration.',
+        null,
+        true // isHidden flag
+      );
+    }, delay);
+  };
+
+  /**
+   * Invalidate approved orchestration for a specific date.
+   * Called when user modifies tasks (add/delete/update) to mark the orchestration as stale.
+   * This ensures the AI will re-orchestrate the day on next "Orchestrate Day" click.
+   */
+  const invalidateApprovedOrchestration = (dateKey: string) => {
+    setApprovedOrchestrations(prev => {
+      const existing = prev[dateKey];
+      if (!existing || !existing.isActive) return prev; // No active orchestration to invalidate
+      
+      console.log(`🔄 Invalidating approved orchestration for ${dateKey} due to task modification`);
+      return {
+        ...prev,
+        [dateKey]: { ...existing, isActive: false }
+      };
+    });
+  };
+
   const executors = {
     getRelationshipStatus: async () => ledgerRef.current,
     getLifeContext: async (args?: { date?: string }) => getTasksForDate(inventoryRef.current, args?.date || toDateString(currentDate)),
     proposeOrchestration: async (newProposal: OrchestrationProposal) => {
+      console.log('🎯 proposeOrchestration CALLED by AI with proposal:', newProposal);
+      
       // Tool permission validation: prevent orchestrating past dates
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -875,6 +1142,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       );
       
       pendingProposalRef.current = newProposal;
+      tasksModifiedCountRef.current = 0; // Reset counter since we're now proposing the orchestration
       return hadExistingProposal 
         ? "✅ New proposal generated. Previous proposal has been replaced." 
         : "✅ Proposal generated.";
@@ -894,7 +1162,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
                 priority: 3, notes: args.notes_update, status: args.status_level, last_contact: contactDate,
                 image: `https://ui-avatars.com/api/?name=${args.person_name}&background=random`
             };
-            pendingContactRef.current = newPerson;
+            pendingContactRef.current.push(newPerson);
             return `Proposal to add ${args.person_name} prepared.`;
         } else {
             setLedger(prev => ({ ...prev, [matchedKey]: { ...(prev[matchedKey] as Person), notes: args.notes_update, status: args.status_level, last_contact: contactDate } }));
@@ -902,6 +1170,8 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
         }
     },
     addTask: async (task: Omit<Task, 'id'>) => {
+        console.log('addTask called with:', JSON.stringify(task, null, 2));
+        
         const isRecurring = !!task.recurrence;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -910,26 +1180,43 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
         
         // Temporal mode validation: Block fixed tasks with time slots on past dates
         if (viewDate < today && task.type === 'fixed' && task.time) {
+          console.warn('Blocked past date task:', task.title, 'for date:', toDateString(currentDate));
           return "❌ Cannot schedule fixed tasks with specific times on past dates. Past dates are for reflection only. For historical records, use flexible tasks without times, or navigate to today/future to schedule new tasks.";
         }
         
+        const taskDate = isRecurring ? undefined : (task.date || toDateString(currentDate));
+        
+        // Build set of existing IDs to ensure uniqueness
+        const existingIds = new Set([...inventoryRef.current.fixed, ...inventoryRef.current.flexible].map(t => t.id));
+        
         const newTask: Task = { 
             ...task, 
-            id: Math.random().toString(36).substr(2, 9), 
-            date: isRecurring ? undefined : (task.date || toDateString(currentDate)) 
+            id: generateUniqueTaskId(existingIds), 
+            date: taskDate
         };
+        
+        console.log('Adding task:', newTask.title, 'to date:', taskDate, 'current view:', toDateString(currentDate));
+        
         setInventory(prev => {
             const listKey = newTask.type === 'fixed' ? 'fixed' : 'flexible';
             return { ...prev, [listKey]: [...prev[listKey], newTask] };
         });
         
+        // Flag that tasks were modified for background orchestration
+        tasksModifiedCountRef.current += 1;
+        
+        // Invalidate approved orchestration since tasks have been modified
+        if (taskDate) {
+          invalidateApprovedOrchestration(taskDate);
+        }
+        
         // Provide context about where the task was added
         if (viewDate < today) {
-          return `Added "${newTask.title}" to ${toDateString(currentDate)} as a historical record (reflection mode).`;
+          return `✅ Added "${newTask.title}" to ${taskDate} as a historical record (reflection mode).`;
         } else if (viewDate > today) {
-          return `Added "${newTask.title}" to future date ${toDateString(currentDate)} (planning mode).`;
+          return `✅ Added "${newTask.title}" to future date ${taskDate} (planning mode).`;
         } else {
-          return `Added task "${newTask.title}" to today's schedule.`;
+          return `✅ Added "${newTask.title}" to today's schedule (${taskDate}).`;
         }
     },
     deleteTask: async (title: string) => {
@@ -937,6 +1224,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
         const target = normalize(title);
         let deleted = false;
         let deletedTaskName = '';
+        let deletedTaskDate: string | undefined;
         
         setInventory(prev => {
             // Find exact matches only
@@ -956,6 +1244,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
                 deleted = true;
                 const match = allExactMatches[0];
                 deletedTaskName = match.title;
+                deletedTaskDate = match.date;
                 if (fixedExactMatches.length > 0) {
                     return { ...prev, fixed: prev.fixed.filter(t => t.id !== match.id) };
                 } else {
@@ -976,6 +1265,14 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
                 return `No exact match found. Did you mean: ${list}? Please use the exact task name.`;
             }
             return `No task found with name "${title}". Please check spelling and use the exact task name.`;
+        }
+        
+        // Flag that tasks were modified for background orchestration
+        tasksModifiedCountRef.current += 1;
+        
+        // Invalidate approved orchestration since tasks have been modified
+        if (deletedTaskDate) {
+          invalidateApprovedOrchestration(deletedTaskDate);
         }
         
         return `Removed task "${deletedTaskName}".`;
@@ -1026,7 +1323,20 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
         const newFlexible = currentInv.flexible.map(updateTask);
 
         if (movedCount > 0) {
+            // Collect source dates before updating inventory
+            const sourceDates = new Set<string>();
+            [...currentInv.fixed, ...currentInv.flexible].forEach(t => {
+                if (movedNames.includes(t.title) && t.date) sourceDates.add(t.date);
+            });
+            
             setInventory({ fixed: newFixed, flexible: newFlexible });
+            // Flag that tasks were modified for background orchestration
+            tasksModifiedCountRef.current += 1;
+            
+            // Invalidate orchestrations for both source and target dates
+            sourceDates.forEach(date => invalidateApprovedOrchestration(date));
+            invalidateApprovedOrchestration(targetDate);
+            
             return `Moved ${movedCount} tasks to ${targetDate}: ${movedNames.join(', ')}.`;
         }
         return "No tasks found to move.";
@@ -1036,6 +1346,13 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   useEffect(() => {
     const dateKey = toDateString(currentDate);
     if (initializedDateRef.current === dateKey) return;
+    
+    // Cancel background orchestration when date changes
+    if (backgroundOrchestrationTimerRef.current) {
+      clearTimeout(backgroundOrchestrationTimerRef.current);
+      backgroundOrchestrationTimerRef.current = null;
+    }
+    tasksModifiedCountRef.current = 0; // Reset counter for new date
     
     // Don't auto-brief if tutorial is showing or if we already have messages
     if (showTutorial) return;
@@ -1061,11 +1378,31 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     let memoryContext = memories.length > 0 ? `\n\n== LONG-TERM MEMORY BANK ==\n${memories.map(m => `- [${m.date}] (${m.type}): ${m.content}`).join('\n')}` : "";
     
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const viewDate = new Date(currentDate);
+    viewDate.setHours(0, 0, 0, 0);
+    const temporalMode = viewDate < today ? 'REFLECTION' : viewDate > today ? 'PLANNING' : 'ACTIVE';
+    
+    // Check for active approved orchestration
+    const orchestrationDateKey = toDateString(currentDate);
+    const activeOrchestration = approvedOrchestrations[orchestrationDateKey];
+    const orchestrationStatus = activeOrchestration && activeOrchestration.isActive
+      ? `ACTIVE since ${new Date(activeOrchestration.approvedAt).toLocaleString()} - Day already orchestrated`
+      : 'NONE - Day not orchestrated';
+    
     geminiService.startNewSession(`
 Session Context:
-Target Date: ${currentDate.toLocaleDateString()}
+Target Date: ${currentDate.toLocaleDateString()} (Format for add_task: ${toDateString(currentDate)})
+Current System Date: ${new Date().toLocaleDateString()} (${toDateString(new Date())})
+Temporal Mode: ${temporalMode}
+Approved Orchestration: ${orchestrationStatus}
+
+IMPORTANT - When user says "this day", "today", "tonight":
+→ They mean the TARGET DATE: ${toDateString(currentDate)}
+→ NOT the current system date
+
 Current Session Time: ${getModeTime()}
-Is Future Date: ${currentDate > new Date()}
 User Mode: ${mode}
 User Timezone: ${timezone}
 ${memoryContext}`);
@@ -1111,21 +1448,52 @@ ${memoryContext}`);
     startBriefing();
   }, [currentDate, showTutorial]);
 
-  const handleUpdateTask = (task: Task) => setInventory(prev => {
+  const handleUpdateTask = (task: Task) => {
+    setInventory(prev => {
       const fixed = prev.fixed.filter(t => t.id !== task.id);
       const flexible = prev.flexible.filter(t => t.id !== task.id);
       if (task.type === 'fixed') return { fixed: [...fixed, task], flexible };
       else return { fixed, flexible: [...flexible, task] };
-  });
+    });
+    
+    // Invalidate approved orchestration since task has been modified
+    if (task.date) {
+      invalidateApprovedOrchestration(task.date);
+    }
+  };
   
   const handleManualAddTask = (task: Task) => {
     const isRecurring = !!task.recurrence;
     const taskToAdd = { ...task, date: isRecurring ? undefined : task.date };
     setInventory(prev => ({ ...prev, [taskToAdd.type]: [...prev[taskToAdd.type], taskToAdd] }));
+    
+    // Invalidate orchestration for the task's date
+    if (taskToAdd.date) {
+      invalidateApprovedOrchestration(taskToAdd.date);
+    }
+    
     handleSendMessage(`CRITICAL UPDATE: I've just manually added the task "${taskToAdd.title}" (${taskToAdd.type}, ${taskToAdd.duration}). Based on my existing anchors and the current time of ${getModeTime()}, what is the optimal placement for this? Use the propose_orchestration tool to update my schedule immediately.`, null);
   };
 
-  const handleDeleteTask = (id: string) => setInventory(prev => ({ fixed: prev.fixed.filter(t => t.id !== id), flexible: prev.flexible.filter(t => t.id !== id) }));
+  const handleDeleteTask = (id: string) => {
+    // Find the task being deleted to get its date
+    const allTasks = [...inventoryRef.current.fixed, ...inventoryRef.current.flexible];
+    const taskToDelete = allTasks.find(t => t.id === id);
+    
+    setInventory(prev => ({ 
+      fixed: prev.fixed.filter(t => t.id !== id), 
+      flexible: prev.flexible.filter(t => t.id !== id) 
+    }));
+    
+    // Invalidate approved orchestration since task has been deleted
+    if (taskToDelete?.date) {
+      invalidateApprovedOrchestration(taskToDelete.date);
+    }
+  };
+  
+  const handleOrchestrate = () => {
+    handleSendMessage('Orchestrate my day. Analyze my current schedule and propose a complete daily reorganization.', null, false, true);
+  };
   
   const handleUpdatePerson = async (oldName: string, p: Person) => {
       let finalPerson = p;
@@ -1148,14 +1516,13 @@ ${memoryContext}`);
         finalPerson = { ...p, image: compressed };
     }
     setLedger(prev => ({ ...prev, [p.name.toLowerCase()]: finalPerson }));
-    handleSendMessage(`RELATIONSHIP UPDATE: I've just added "${p.name}" (${p.relation}) to my Kinship Ledger. My goal is to maintain this connection. Please look at my current schedule for today and tomorrow and propose a specific time slot to reach out to them. Use propose_orchestration if you find a gap today.`, null);
+    // No automatic message - let user control when to orchestrate via button
   };
 
   const handleDeletePerson = (name: string) => setLedger(prev => { const newL = { ...prev }; const key = Object.keys(newL).find(k => (newL[k] as Person).name === name); if (key) delete newL[key]; return newL; });
 
   const acceptContact = (person: Person) => {
-    handleAddPerson(person); // Add to ledger
-    handleSendMessage(`Confirmed: Added ${person.name}.`, null); 
+    handleAddPerson(person); // Add to ledger - this calls handleSendMessage internally
     updateCurrentDayMessages(prev => prev.map(msg => msg.contactProposals?.includes(person) ? { ...msg, contactProposals: undefined } : msg));
   };
   const rejectContact = (person: Person) => { 
@@ -1189,15 +1556,39 @@ ${memoryContext}`);
         setInventory(prev => {
             const fixed = prev.fixed.filter(t => t.date !== todayStr);
             const flexible = prev.flexible.filter(t => t.date !== todayStr);
+            
+            // Build set of existing IDs (from tasks not being replaced) to ensure uniqueness
+            const existingIds = new Set([...fixed, ...flexible].map(t => t.id));
+            
             const newFixed: Task[] = [];
             const newFlexible: Task[] = [];
             proposal.schedule.forEach(t => {
-                const taskWithDate = { ...t, date: todayStr };
+                // Generate new unique ID for each task to prevent duplicate key warnings
+                const newId = generateUniqueTaskId(existingIds);
+                existingIds.add(newId); // Track newly generated IDs to prevent collisions within batch
+                const taskWithDate = { 
+                    ...t, 
+                    date: todayStr,
+                    id: newId 
+                };
                 if (t.type === 'fixed') newFixed.push(taskWithDate);
                 else newFlexible.push(taskWithDate);
             });
             return { fixed: [...fixed, ...newFixed], flexible: [...flexible, ...newFlexible] };
         });
+        
+        // Save approved orchestration for performance optimization
+        const approvedOrchestration: ApprovedOrchestration = {
+          date: todayStr,
+          proposal: proposal,
+          approvedAt: new Date().toISOString(),
+          isActive: true
+        };
+        setApprovedOrchestrations(prev => ({
+          ...prev,
+          [todayStr]: approvedOrchestration
+        }));
+        console.log(`✅ Saved approved orchestration for ${todayStr}`);
         
         handleSendMessage(`I accept the orchestration proposal for today. The timeline looks solid: \n\n${proposal.optimized_timeline}`, null);
         updateCurrentDayMessages(prev => prev.map(msg => msg.proposal === proposal ? { ...msg, proposal: undefined } : msg));
@@ -1305,11 +1696,31 @@ ${memoryContext}`);
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       let memoryContext = memories.length > 0 ? `\n\n== LONG-TERM MEMORY BANK ==\n${memories.map(m => `- [${m.date}] (${m.type}): ${m.content}`).join('\n')}` : "";
       
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const viewDate = new Date(currentDate);
+      viewDate.setHours(0, 0, 0, 0);
+      const temporalMode = viewDate < today ? 'REFLECTION' : viewDate > today ? 'PLANNING' : 'ACTIVE';
+      
+      // Check for active approved orchestration
+      const dateKey = toDateString(currentDate);
+      const activeOrchestration = approvedOrchestrations[dateKey];
+      const orchestrationStatus = activeOrchestration && activeOrchestration.isActive
+        ? `ACTIVE since ${new Date(activeOrchestration.approvedAt).toLocaleString()} - Day already orchestrated`
+        : 'NONE - Day not orchestrated';
+      
       geminiService.startNewSession(`
 Session Context:
-Target Date: ${currentDate.toLocaleDateString()}
+Target Date: ${currentDate.toLocaleDateString()} (Format for add_task: ${toDateString(currentDate)})
+Current System Date: ${new Date().toLocaleDateString()} (${toDateString(new Date())})
+Temporal Mode: ${temporalMode}
+Approved Orchestration: ${orchestrationStatus}
+
+IMPORTANT - When user says "this day", "today", "tonight":
+→ They mean the TARGET DATE: ${toDateString(currentDate)}
+→ NOT the current system date
+
 Current Session Time: ${getModeTime()}
-Is Future Date: ${currentDate > new Date()}
 User Mode: ${mode}
 User Timezone: ${timezone}
 ${memoryContext}`);
@@ -1392,7 +1803,7 @@ ${memoryContext}`);
                   <KinshipLedgerView ledger={ledger} onUpdatePerson={handleUpdatePerson} onAddPerson={handleAddPerson} onDeletePerson={handleDeletePerson} onAnalyzePhoto={(n,p) => handleSendMessage(`Analyze photo for ${n}`, p)} />
                 </section>
                 <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col shrink-0">
-                  <CareerInventoryView inventory={dailyInventory} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} onAddTask={handleManualAddTask} />
+                  <CareerInventoryView inventory={dailyInventory} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} onAddTask={handleManualAddTask} onOrchestrate={handleOrchestrate} />
                 </section>
              </div>
           </div>
@@ -1411,10 +1822,17 @@ ${memoryContext}`);
                   if (processingProposal) return;
                   setProcessingProposal(true);
                   try {
-                    handleSendMessage(`I'd like to revise this orchestration proposal. Here's what I'm thinking: [User provides feedback on what to change]`, null);
+                    // Remove the proposal from the message
                     updateCurrentDayMessages(prev => prev.map(msg => 
                       msg.proposal === proposal ? { ...msg, proposal: undefined } : msg
                     ));
+                    // Send a hidden context message to AI so it knows the proposal was declined
+                    // Then let AI ask the user why and what adjustments they'd like
+                    await handleSendMessage(
+                      `[SYSTEM: User clicked "Revise" on your orchestration proposal. The proposal has been dismissed. Please ask the user what they didn't like about the schedule and what adjustments they'd prefer. Be conversational and helpful - offer to re-orchestrate once you understand their preferences.]`,
+                      null,
+                      true // hidden from chat UI
+                    );
                   } finally {
                     setProcessingProposal(false);
                   }

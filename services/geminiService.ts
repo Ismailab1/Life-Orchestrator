@@ -43,6 +43,83 @@ import { SYSTEM_INSTRUCTION, REFLECTION_MODE_INSTRUCTION, ACTIVE_MODE_INSTRUCTIO
 import { LifeInventory, RelationshipLedger, OrchestrationProposal, UpdateRelationshipArgs, Task } from "../types";
 
 /**
+ * Timeout Utility - Wraps promises with timeout protection
+ * Prevents indefinite hangs when Gemini API stalls
+ */
+const withTimeout = <T,>(promise: Promise<T>, ms: number, errorMessage?: string): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(errorMessage || `Request timed out after ${ms}ms`));
+    }, ms);
+    promise.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+};
+
+const STREAM_TIMEOUT = 30000; // 30 seconds for stream completion
+const CHUNK_TIMEOUT = 30000; // 30 seconds between chunks
+const ORCHESTRATION_STREAM_TIMEOUT = 60000; // 60 seconds for orchestration streams
+const ORCHESTRATION_CHUNK_TIMEOUT = 45000; // 45 seconds between chunks during orchestration
+
+/**
+ * Generate fallback message when LLM response is missing after function calls
+ */
+const generateFallbackMessage = (functionCalls: any[]): string => {
+  if (functionCalls.length === 0) return '';
+  
+  console.log('Generating fallback for function calls:', JSON.stringify(functionCalls, null, 2));
+  
+  const callCounts: Record<string, number> = {};
+  const taskTitles: string[] = [];
+  
+  functionCalls.forEach(call => {
+    callCounts[call.name] = (callCounts[call.name] || 0) + 1;
+    if (call.name === 'add_task' && call.args?.title) {
+      taskTitles.push(call.args.title);
+    }
+  });
+  
+  const messages: string[] = [];
+  
+  if (callCounts['add_task']) {
+    if (taskTitles.length === 1) {
+      messages.push(`I've added "${taskTitles[0]}" to your schedule.`);
+    } else if (taskTitles.length > 1) {
+      messages.push(`I've added ${taskTitles.length} events to your schedule: ${taskTitles.map(t => `"${t}"`).join(', ')}.`);
+    } else {
+      messages.push(`I've added ${callCounts['add_task']} task${callCounts['add_task'] > 1 ? 's' : ''} to your schedule.`);
+    }
+  }
+  
+  if (callCounts['delete_task']) {
+    messages.push(`I've removed ${callCounts['delete_task']} task${callCounts['delete_task'] > 1 ? 's' : ''}.`);
+  }
+  
+  if (callCounts['move_tasks']) {
+    messages.push(`I've rescheduled tasks as requested.`);
+  }
+  
+  if (callCounts['update_relationship_status']) {
+    messages.push(`I've updated ${callCounts['update_relationship_status']} contact${callCounts['update_relationship_status'] > 1 ? 's' : ''} in your Kinship Ledger.`);
+  }
+  
+  if (callCounts['propose_orchestration']) {
+    messages.push(`I've prepared an orchestration for you.`);
+  }
+  
+  // If only get_ functions were called (read-only), don't show "Done"
+  const hasWriteOperations = Object.keys(callCounts).some(
+    key => !key.startsWith('get_') && !key.startsWith('save_memory')
+  );
+  
+  if (!hasWriteOperations) {
+    console.log('Only read operations detected, skipping fallback message');
+    return ''; // Let timeout/error handling show appropriate message
+  }
+  
+  return messages.length > 0 ? messages.join(' ') : `Action completed (${Object.keys(callCounts).join(', ')}).`;
+};
+
+/**
  * Tool Definitions
  * DESIGN DECISION: Declarative function schemas for AI
  * 
@@ -252,10 +329,24 @@ interface ToolExecutors {
 export class GeminiService {
   private genAI: GoogleGenerativeAI;
   private model: GenerativeModel;
-  private chat: ChatSession | null = null;
+  chat: ChatSession | null = null; // Made public for session validation
   private tools: FunctionDeclaration[];
   private currentTemporalMode: 'reflection' | 'active' | 'planning' = 'active';
   private abortController: AbortController | null = null;
+
+  /**
+   * Reset the chat session - used when switching dates to prevent context bleed
+   * The next sendMessage call will reinitialize with the correct date context
+   */
+  resetSession() {
+    if (this.abortController) {
+      this.abortController.abort();
+      console.log('[GeminiService] Aborted session stream on reset');
+    }
+    this.chat = null;
+    this.abortController = null;
+    console.log('[GeminiService] Session reset - will reinitialize on next message');
+  }
 
   constructor() {
     const apiKey = process.env.API_KEY || '';
@@ -421,9 +512,14 @@ User Timezone: ${timezone}`;
     media: string | null, 
     executors: ToolExecutors,
     onUpdate: (text: string, thought: string) => void,
-    currentTimeString?: string
+    currentTimeString?: string,
+    isOrchestration: boolean = false
   ): Promise<{ text: string, thought: string }> {
-    if (!this.chat) this.startNewSession();
+    // Ensure session exists - if not, throw error as session should be initialized by caller
+    if (!this.chat) {
+      console.error('[GeminiService] No active chat session when sendMessageStream called');
+      throw new Error('Chat session not initialized. Please call startNewSession() first with proper context.');
+    }
 
     const parts: Array<string | Part> = [];
     if (media) {
@@ -437,6 +533,15 @@ User Timezone: ${timezone}`;
     const modeReminder = this.getTemporalModeReminder();
     parts.push(message + `\n\n[System Note: Current Local Time is ${timeStr}. ${modeReminder}]`);
 
+    console.log('💬 Sending message to AI:', message.substring(0, 100) + '...');
+    if (isOrchestration) {
+      console.log('🎼 ORCHESTRATION MODE: Using extended timeout (60s stream, 45s chunks)');
+    }
+    
+    // Use extended timeouts for orchestration
+    const streamTimeout = isOrchestration ? ORCHESTRATION_STREAM_TIMEOUT : STREAM_TIMEOUT;
+    const chunkTimeout = isOrchestration ? ORCHESTRATION_CHUNK_TIMEOUT : CHUNK_TIMEOUT;
+    
     let accumulatedText = "";
     let accumulatedThought = "";
 
@@ -444,8 +549,16 @@ User Timezone: ${timezone}`;
         const result = await this.chat!.sendMessageStream(parts);
         
         let functionCallParts: any[] = []; // Store function calls to execute
+        let lastChunkTime = Date.now();
 
         for await (const chunk of result.stream) {
+            // Check for chunk timeout
+            if (Date.now() - lastChunkTime > chunkTimeout) {
+                console.error(`⎰ Stream timeout: No chunks received for ${chunkTimeout/1000} seconds`);
+                throw new Error(`Stream timeout: No chunks received for ${chunkTimeout/1000} seconds`);
+            }
+            lastChunkTime = Date.now();
+            
             // Check for thoughts (if model supports it via specific output, otherwise assume standard text)
             // Note: Standard Gemini doesn't separate "thought" in the API response like the preview SDK might have simulated.
             // We'll treat all text as text for now, unless we prompt for explicit thought blocks.
@@ -464,16 +577,27 @@ User Timezone: ${timezone}`;
             }
         }
         
-        // Wait for full response to properly handle function calls
-        const finalResponse = await result.response;
+        // Wait for full response to properly handle function calls (with timeout)
+        console.log('✅ Text streaming complete. Checking for function calls...');
+        const finalResponse = await withTimeout(
+            result.response,
+            streamTimeout,
+            `Timed out waiting for complete response after ${streamTimeout/1000} seconds`
+        );
         const finalCalls = finalResponse.functionCalls();
 
         if (finalCalls && finalCalls.length > 0) {
+            console.log(`📞 AI called ${finalCalls.length} function(s):`, finalCalls.map(c => c.name).join(', '));
+            
             const functionResponses = [];
+            const executedCalls: any[] = []; // Track executed calls for fallback
+            
             for (const call of finalCalls) {
                  let res: any = {};
                  try {
                      const args = call.args as any;
+                     executedCalls.push({ name: call.name, args }); // Track this call
+                     
                      if (call.name === 'get_relationship_status') res = await executors.getRelationshipStatus();
                      else if (call.name === 'get_life_context') res = await executors.getLifeContext(args);
                      else if (call.name === 'propose_orchestration') res = { status: await executors.proposeOrchestration(args) };
@@ -494,20 +618,127 @@ User Timezone: ${timezone}`;
                  });
             }
             
-            // Send function responses
+            // IMPORTANT: Force UI update after executing all functions to show pending contacts/proposals immediately
+            console.log('✅ All functions executed. Triggering UI update for pending items...');
+            onUpdate(accumulatedText, accumulatedThought);
+            
+            // Send function responses (with timeout protection)
+            console.log('🔄 Sending function results back to AI for next action...');
             const functionResult = await this.chat!.sendMessageStream(functionResponses);
             
-             for await (const chunk of functionResult.stream) {
+            lastChunkTime = Date.now();
+            let secondStreamHadContent = false;
+            
+            for await (const chunk of functionResult.stream) {
+                // Check for chunk timeout in second stream
+                const timeout = isOrchestration ? chunkTimeout : CHUNK_TIMEOUT;
+                if (Date.now() - lastChunkTime > timeout) {
+                    console.warn(`Second stream timeout - using fallback message (waited ${timeout/1000}s)`);
+                    break; // Exit gracefully
+                }
+                lastChunkTime = Date.now();
+                
                 const chunkText = chunk.text();
                 if (chunkText) {
                     accumulatedText += chunkText;
                     onUpdate(accumulatedText, accumulatedThought);
+                    secondStreamHadContent = true;
                 }
             }
+            
+            // CRITICAL: Check if second stream ALSO has function calls (e.g., propose_orchestration after reading context)
+            const secondResponse = await withTimeout(
+                functionResult.response,
+                streamTimeout,
+                `Second stream timed out after ${streamTimeout/1000}s`
+            );
+            const secondCalls = secondResponse.functionCalls();
+            
+            if (secondCalls && secondCalls.length > 0) {
+                console.log(`🔁 Second stream has ${secondCalls.length} MORE function call(s):`, secondCalls.map(c => c.name).join(', '));
+                
+                const secondFunctionResponses = [];
+                const secondExecutedCalls: any[] = [];
+                
+                for (const call of secondCalls) {
+                    let res: any = {};
+                    try {
+                        const args = call.args as any;
+                        secondExecutedCalls.push({ name: call.name, args });
+                        
+                        if (call.name === 'get_relationship_status') res = await executors.getRelationshipStatus();
+                        else if (call.name === 'get_life_context') res = await executors.getLifeContext(args);
+                        else if (call.name === 'propose_orchestration') res = { status: await executors.proposeOrchestration(args) };
+                        else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
+                        else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
+                        else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
+                        else if (call.name === 'delete_relationship_status') res = { status: await executors.deleteRelationshipStatus(args.person_name) };
+                        else if (call.name === 'save_memory') res = { status: await executors.saveMemory(args.content, args.type) };
+                        else if (call.name === 'move_tasks') res = { status: await executors.moveTasks(args.task_identifiers, args.target_date) };
+                    } catch(e) { res = { error: "Failed" }; }
+                    
+                    secondFunctionResponses.push({
+                        functionResponse: {
+                            name: call.name,
+                            response: { result: res }
+                        }
+                    });
+                }
+                
+                // IMPORTANT: Force UI update after second batch to show pending items
+                console.log('✅ Second function batch executed. Triggering UI update...');
+                onUpdate(accumulatedText, accumulatedThought);
+                
+                // Send second batch of function responses
+                console.log('🔄 Sending second batch of function results back to AI...');
+                const thirdResult = await this.chat!.sendMessageStream(secondFunctionResponses);
+                
+                lastChunkTime = Date.now();
+                for await (const chunk of thirdResult.stream) {
+                    const timeout = isOrchestration ? chunkTimeout : CHUNK_TIMEOUT;
+                    if (Date.now() - lastChunkTime > timeout) {
+                        console.warn(`Third stream timeout (waited ${timeout/1000}s)`);
+                        break;
+                    }
+                    lastChunkTime = Date.now();
+                    
+                    const chunkText = chunk.text();
+                    if (chunkText) {
+                        accumulatedText += chunkText;
+                        onUpdate(accumulatedText, accumulatedThought);
+                        secondStreamHadContent = true;
+                    }
+                }
+                
+                // If still no content after second function batch, generate fallback
+                if (!secondStreamHadContent || accumulatedText.trim().length < 10) {
+                    const fallbackMsg = generateFallbackMessage(secondExecutedCalls);
+                    if (fallbackMsg) {
+                        console.log('Generating fallback after second function batch:', fallbackMsg);
+                        accumulatedText = fallbackMsg;
+                        onUpdate(accumulatedText, accumulatedThought);
+                    }
+                }
+            } else if (!secondStreamHadContent || accumulatedText.trim().length < 10) {
+                // No second function calls, check if we need fallback for first batch
+                const fallbackMsg = generateFallbackMessage(executedCalls);
+                if (fallbackMsg) {
+                    console.log('Generating fallback message:', fallbackMsg);
+                    accumulatedText = fallbackMsg;
+                    onUpdate(accumulatedText, accumulatedThought);
+                }
+            }
+        } else {
+            console.log('ℹ️ No function calls detected in response. AI provided text only.');
         }
         
     } catch(e) {
-        console.error("Stream error", e);
+        console.error("🚨 Stream error:", e);
+        // If it's a timeout during second stream and we have accumulated text, that's acceptable
+        if (e instanceof Error && e.message.includes('timeout') && accumulatedText) {
+            console.warn('⚠️ Stream timed out but returning partial content:', accumulatedText.substring(0, 100) + '...');
+            return { text: accumulatedText, thought: accumulatedThought };
+        }
         throw e;
     }
 
@@ -541,12 +772,16 @@ User Timezone: ${timezone}`;
         let response = await result.response;
         
         let functionCalls = response.functionCalls();
+        const executedCalls: any[] = []; // Track executed calls for fallback
+        
         while (functionCalls && functionCalls.length > 0) {
             const functionResponses = [];
             for (const call of functionCalls) {
                 let res: any = {};
                 try {
                      const args = call.args as any;
+                     executedCalls.push({ name: call.name, args }); // Track this call
+                     
                      if (call.name === 'get_relationship_status') res = await executors.getRelationshipStatus();
                      else if (call.name === 'get_life_context') res = await executors.getLifeContext(args);
                      else if (call.name === 'propose_orchestration') res = { status: await executors.proposeOrchestration(args) };
@@ -570,7 +805,18 @@ User Timezone: ${timezone}`;
             functionCalls = response.functionCalls();
         }
 
-        return { text: response.text(), thought: accumulatedThought };
+        let responseText = response.text();
+        
+        // If response is empty after function calls, generate fallback
+        if (executedCalls.length > 0 && (!responseText || responseText.trim().length < 10)) {
+            const fallbackMsg = generateFallbackMessage(executedCalls);
+            if (fallbackMsg) {
+                console.log('Generating fallback message (non-streaming):', fallbackMsg);
+                responseText = fallbackMsg;
+            }
+        }
+
+        return { text: responseText, thought: accumulatedThought };
         
     } catch(e) {
         console.error("Message Error", e);

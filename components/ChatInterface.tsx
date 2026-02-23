@@ -128,7 +128,15 @@ export const ChatInterface: React.FC<Props> = ({
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setSelectedMedia(reader.result as string);
+      reader.onloadend = () => {
+        if (reader.result && typeof reader.result === 'string') {
+          setSelectedMedia(reader.result);
+        }
+      };
+      reader.onerror = () => {
+        console.error('Failed to read file:', reader.error);
+        setSelectedMedia(null);
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -197,8 +205,8 @@ export const ChatInterface: React.FC<Props> = ({
             <div className="flex items-center justify-center">
               <span className="px-3 py-1 bg-slate-200/50 text-slate-500 text-[10px] font-bold rounded-full uppercase tracking-widest border border-slate-200">{group.date}</span>
             </div>
-            {group.messages.map((msg, idx) => (
-              <div key={idx} className={`flex flex-col group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+            {group.messages.map((msg) => (
+              <div key={msg.id} className={`flex flex-col group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 {msg.role === 'model' && msg.thought && (
                   <div className="mb-2 max-w-[90%] w-full">
                     <details className="group bg-white/80 border border-slate-200 rounded-xl overflow-hidden shadow-sm">
@@ -240,14 +248,24 @@ export const ChatInterface: React.FC<Props> = ({
                     <div className={`prose prose-sm max-w-none ${msg.role === 'user' && !msg.isAction ? 'prose-invert text-white' : 'text-slate-800'}`}>
                       <ReactMarkdown>{msg.text}</ReactMarkdown>
                     </div>
+                    
+                    {/* Orchestration Proposal - Nested inside message */}
+                    {msg.proposal && (
+                      <div className="mt-3 pt-3 border-t border-slate-200/60 flex gap-2">
+                        <div className="w-1 bg-emerald-500 rounded-full flex-shrink-0"></div>
+                        <div className="flex-1">
+                          <OrchestrationProposalView proposal={msg.proposal} onAccept={() => onAcceptProposal(msg.proposal!)} onReject={() => onRejectProposal(msg.proposal!)} isProcessing={processingProposal} />
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className={`text-[8px] mt-2 font-bold tracking-widest opacity-40 uppercase ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
                       {formatMessageTime(msg.timestamp)}
                     </div>
                   </div>
                 )}
-                {msg.proposal && <div className="w-full max-w-2xl mt-4"><OrchestrationProposalView proposal={msg.proposal} onAccept={() => onAcceptProposal(msg.proposal!)} onReject={() => onRejectProposal(msg.proposal!)} isProcessing={processingProposal} /></div>}
-                {msg.contactProposals && msg.contactProposals.map((p, i) => (
-                    <div className="mt-4" key={i}><ContactProposalView person={p} onAccept={() => onAcceptContact(p)} onReject={() => onRejectContact(p)} /></div>
+                {msg.contactProposals && msg.contactProposals.map((p) => (
+                    <div className="mt-4" key={`contact-${p.name}`}><ContactProposalView person={p} onAccept={() => onAcceptContact(p)} onReject={() => onRejectContact(p)} /></div>
                 ))}
               </div>
             ))}

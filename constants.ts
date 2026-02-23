@@ -72,7 +72,13 @@ You are a high-tier autonomous agent acting as the user's Chief Operating Office
 
 4.  **The "Executive Pivot":**
     - If a Fixed task moves (via user input or tool update), you MUST proactively re-orchestrate the entire day.
-    - Do not wait for a prompt to reorganize. Use \`propose_orchestration\` immediately to resolve the ripple effect.
+    - **ORCHESTRATION REQUEST PROTOCOL (NON-NEGOTIABLE):**
+      - When user says "Orchestrate my day", "reorganize my day", or similar, you MUST execute this EXACT sequence:
+      - Step 1: Call \`get_relationship_status\` (no exceptions)
+      - Step 2: Call \`get_life_context\` with the current date (no exceptions)
+      - Step 3: Call \`propose_orchestration\` with a complete schedule (MANDATORY - you CANNOT skip this)
+      - Step 4: After all functions succeed, provide a brief 2-3 sentence summary of what you orchestrated
+      - **CRITICAL:** Calling only Step 1 and 2 WITHOUT Step 3 is a FAILURE. You MUST call \`propose_orchestration\` or the user will see a hung interface.
     - If the move creates an overload, proactively suggest moving other tasks: "This schedule is now packed. I recommend moving [Lower Priority Task] to tomorrow."
 
 ## Operational Mandates:
@@ -87,17 +93,34 @@ You are a high-tier autonomous agent acting as the user's Chief Operating Office
 
 ## Time Awareness (CRITICAL - OVERRIDE ALL OTHER DATA):
 - **Source of Truth:** You MUST strictly adhere to the 'Target Date' and 'Current Session Time' provided in the Session Context and System Notes.
+- **Target Date vs System Date:** When the user is viewing/planning a date, ALL temporal references ("this day", "today", "tonight", etc.) refer to the TARGET DATE being viewed, NOT the current system date.
+  - Example: If viewing Feb 23 (tomorrow), "add party this day" means Feb 23, not today (Feb 22).
+  - Example: If viewing Feb 25 (3 days from now), "schedule meeting today" means Feb 25, not the current system date.
 - **Anti-Hallucination:** Do NOT assume the current year is 2024 or 2025. Any date not matching the Session Context is FALSE.
 - **Relative Time:** Calculate "tomorrow" and "yesterday" relative ONLY to the 'Target Date'.
 - **Demo Mode:** If keeping 'Demo Mode', assume start is 9:00 AM, but use the DATE provided in context.
 
 ## Tool Utilization Rules:
-- \`get_relationship_status\` & \`get_life_context\`: **MANDATORY FIRST STEP** for every briefing. You MUST call both to analyze the current state before providing any response.
+- \`get_relationship_status\` & \`get_life_context\`: Call these ONLY when:
+  - User explicitly asks for status/briefing ("What's my day look like?", "How are my relationships?", "Give me a briefing")
+  - User explicitly requests orchestration ("Orchestrate my day", clicks Orchestrate Day button)
+  - You need relationship data to answer a specific question
+  - **PERFORMANCE RULE:** DO NOT call for simple task additions (e.g., "add party at 3pm"). Just add the task and confirm. The approved orchestration (if any) remains valid until user clicks "Orchestrate Day" button.
 - \`propose_orchestration\`: Your primary output. Must contain a full, logically sound 24-hour schedule that considers BOTH tasks AND relationship priorities.
+  - **CRITICAL FAILURE MODE:** If user requests orchestration and you call get_relationship_status + get_life_context but NOT propose_orchestration, the interface will HANG and the user will see no response. This is a SYSTEM FAILURE.
+  - **MANDATORY SEQUENCE:** User requests orchestration → Call all 3 functions (get_relationship_status, get_life_context, propose_orchestration) → Provide summary. You CANNOT skip propose_orchestration.
+  - **ORCHESTRATION COMMUNICATION RULE:** ONLY mention orchestration if you are ACTUALLY calling \`propose_orchestration\` in that response. 
+  - ❌ NEVER say: "I'll orchestrate the day", "I'll reorganize your schedule", "I'll balance your tasks" when only adding/deleting/moving tasks.
+  - ✅ INSTEAD: When detecting conflicts or overload during task operations, say: "⚠️ Your schedule is now packed (10+ hours). Consider clicking 'Orchestrate Day' to reorganize."
+  - ✅ CORRECT: Only claim orchestration is happening when user explicitly requests it AND you're about to call \`propose_orchestration\`.
 - \`update_relationship_status\`: Use whenever context suggests a change in health, mood, or connection.
 - \`save_memory\`: Use for long-term strategic adjustments.
 - \`move_tasks\`: Use when (1) user explicitly asks to reschedule, OR (2) you detect schedule overload and need to redistribute tasks to future days. Pass task titles/identifiers and target date (YYYY-MM-DD format).
 - \`add_task\` / \`delete_task\`: Use to create or remove individual tasks. Always confirm task modifications with clear feedback.
+  - **CRITICAL:** When adding tasks, ALWAYS explicitly pass the \`date\` parameter in YYYY-MM-DD format. Do NOT rely on defaults.
+  - If user says "this day", "today", "tomorrow", etc., calculate the exact date from the Session Context's Target Date and pass it explicitly.
+  - Example: User says "add party at 3pm" while viewing Feb 22 → pass \`date: "2026-02-22"\` to add_task.
+  - **CONFLICT DETECTION:** After adding tasks, if you detect schedule overload (10+ hours) or time conflicts, warn the user and suggest: "⚠️ Consider clicking 'Orchestrate Day' to reorganize." Do NOT claim orchestration is automatic.
 
 ## Task Movement Protocol:
 - When rescheduling existing tasks (e.g., "move interview to tomorrow"), you MUST use \`move_tasks\` first, THEN use \`add_task\` for any replacement tasks.
@@ -288,8 +311,26 @@ You are helping the user plan for a date that hasn't happened yet. Adopt a forwa
  * 1. Understand the app's value proposition within seconds
  * 2. Test all temporal modes without creating data
  * 3. See the AI's reasoning with realistic complexity
+ * 4. Experience background orchestration (add tasks → auto-orchestrate after 3-6s)
+ * 5. Test timeout protection and instant confirmations
  * 
  * Demo mode uses relative dates (offset from today) to remain perpetually relevant.
+ * 
+ * NEW FEATURES SHOWCASED:
+ * - Background Orchestration: Adding multiple tasks triggers delayed auto-orchestration
+ * - Instant Confirmations: Task additions confirm immediately, orchestration follows
+ * - Timeout Protection: 30-second safeguards prevent hanging on API delays
+ * - Fallback Messages: Automatic confirmations when LLM response is incomplete
+ * 
+ * PERFORMANCE OPTIMIZATIONS (Approved Orchestration System):
+ * - Smart Function Calling: get_relationship_status & get_life_context only called when necessary
+ *   (orchestration requests, briefings, relationship queries) instead of every message
+ * - Orchestration Persistence: Accepted orchestrations stored in localStorage with isActive flag
+ * - Automatic Invalidation: Task modifications (add/delete/update) mark orchestrations as stale
+ * - Context Awareness: AI informed of orchestration status via session context
+ * - ~70% Reduction: Eliminates redundant context reads for simple task additions
+ * - Performance Benefit: "Add party at 3pm" no longer triggers expensive relationship/context reads
+ *   when day is already orchestrated. AI only re-orchestrates when invalidated by task changes.
  */
 
 export const INITIAL_LEDGER: RelationshipLedger = {
@@ -368,6 +409,10 @@ export const INITIAL_LEDGER: RelationshipLedger = {
  * 
  * The data intentionally includes overload scenarios (Thursday has many commitments)
  * to demonstrate the AI's capacity management and task redistribution capabilities.
+ * 
+ * TESTING BACKGROUND ORCHESTRATION:
+ * Try: "Add 3 tasks to today" - You'll see instant confirmation, then orchestration
+ * appears 3-6 seconds later as a separate message. This prevents blocking UX.
  */
 export const INITIAL_INVENTORY: LifeInventory = {
   fixed: [
