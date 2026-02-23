@@ -1461,7 +1461,7 @@ ${memoryContext}`);
       invalidateApprovedOrchestration(taskToAdd.date);
     }
     
-    handleSendMessage(`CRITICAL UPDATE: I've just manually added the task "${taskToAdd.title}" (${taskToAdd.type}, ${taskToAdd.duration}). Based on my existing anchors and the current time of ${getModeTime()}, what is the optimal placement for this? Use the propose_orchestration tool to update my schedule immediately.`, null);
+    handleSendMessage(`I've added "${taskToAdd.title}" (${taskToAdd.type}, ${taskToAdd.duration}) to my task inventory. Does this affect my schedule in any way I should know about? Would you recommend orchestrating the day?`, null);
   };
 
   const handleDeleteTask = (id: string) => {

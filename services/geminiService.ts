@@ -142,18 +142,18 @@ const getRelationshipStatusTool: FunctionDeclaration = {
 
 const getLifeContextTool: FunctionDeclaration = {
   name: 'get_life_context',
-  description: 'Gets the user\'s current schedule, tasks, and goals across career and personal life.',
+  description: 'Returns the AUTHORITATIVE and COMPLETE list of ALL tasks for the given date. This is the ONLY source of truth. The schedule you propose in propose_orchestration MUST be built from these tasks — you may NOT add, invent, rename, or substitute any tasks. Break/meal slots may only be added if they do not already appear in the returned task list.',
   parameters: {
     type: SchemaType.OBJECT,
     properties: {
-      date: { type: SchemaType.STRING, description: 'The date to check (YYYY-MM-DD).' },
+      date: { type: SchemaType.STRING, description: 'The date to check (YYYY-MM-DD). ALWAYS pass the exact Target Date from the Session Context.' },
     },
   },
 };
 
 const proposeOrchestrationTool: FunctionDeclaration = {
   name: 'propose_orchestration',
-  description: 'Submits a restructured day plan. IMPORTANT: Calculate total duration before proposing. If >10 hours, recommend moving low-priority tasks to future days using move_tasks.',
+  description: 'Submits a restructured day plan using ONLY the tasks returned by get_life_context. CRITICAL ANTI-HALLUCINATION RULES: (1) Every item in the schedule array MUST correspond to an actual task from get_life_context. (2) Do NOT invent, rename, or substitute tasks. (3) Fixed tasks with a set time MUST keep that time. (4) Flexible tasks may be reordered within optimal windows. (5) You may add brief unlisted break slots (e.g., 15-min buffer) but NEVER fabricate full work blocks. If >10 hours total, recommend moving low-priority tasks to future days using move_tasks.',
   parameters: {
     type: SchemaType.OBJECT,
     properties: {
@@ -544,6 +544,7 @@ User Timezone: ${timezone}`;
     
     let accumulatedText = "";
     let accumulatedThought = "";
+    let proposedOrchestration = false; // Track if propose_orchestration was successfully called
 
     try {
         const result = await this.chat!.sendMessageStream(parts);
@@ -600,7 +601,16 @@ User Timezone: ${timezone}`;
                      
                      if (call.name === 'get_relationship_status') res = await executors.getRelationshipStatus();
                      else if (call.name === 'get_life_context') res = await executors.getLifeContext(args);
-                     else if (call.name === 'propose_orchestration') res = { status: await executors.proposeOrchestration(args) };
+                     else if (call.name === 'propose_orchestration') {
+                         if (!isOrchestration) {
+                             // Block auto-orchestration — only allowed on explicit user request
+                             console.warn('🚫 Blocked propose_orchestration during non-orchestration interaction');
+                             res = { status: 'not_executed: orchestration is only allowed when the user explicitly requests it. Recommend clicking Orchestrate Day instead.' };
+                         } else {
+                             res = { status: await executors.proposeOrchestration(args) };
+                             proposedOrchestration = true;
+                         }
+                     }
                      else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
                      else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
                      else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
@@ -668,7 +678,16 @@ User Timezone: ${timezone}`;
                         
                         if (call.name === 'get_relationship_status') res = await executors.getRelationshipStatus();
                         else if (call.name === 'get_life_context') res = await executors.getLifeContext(args);
-                        else if (call.name === 'propose_orchestration') res = { status: await executors.proposeOrchestration(args) };
+                        else if (call.name === 'propose_orchestration') {
+                            if (!isOrchestration) {
+                                // Block auto-orchestration — only allowed on explicit user request
+                                console.warn('🚫 Blocked propose_orchestration during non-orchestration interaction (second batch)');
+                                res = { status: 'not_executed: orchestration is only allowed when the user explicitly requests it. Recommend clicking Orchestrate Day instead.' };
+                            } else {
+                                res = { status: await executors.proposeOrchestration(args) };
+                                proposedOrchestration = true;
+                            }
+                        }
                         else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
                         else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
                         else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
@@ -726,6 +745,59 @@ User Timezone: ${timezone}`;
                     console.log('Generating fallback message:', fallbackMsg);
                     accumulatedText = fallbackMsg;
                     onUpdate(accumulatedText, accumulatedThought);
+                }
+            }
+
+            // ORCHESTRATION RESCUE: If orchestration was requested but propose_orchestration was
+            // never called (AI acknowledged but forgot to propose), forcefully nudge it.
+            if (isOrchestration && !proposedOrchestration) {
+                console.warn('⚠️ ORCHESTRATION RESCUE: propose_orchestration was never called. Sending forced nudge...');
+                const nudgeResult = await this.chat!.sendMessageStream(
+                    ['[SYSTEM OVERRIDE: You acknowledged the orchestration request but did not call propose_orchestration. You MUST call propose_orchestration RIGHT NOW with a complete schedule for this day. This is mandatory — do not output any more text, just call propose_orchestration immediately.]']
+                );
+
+                for await (const chunk of nudgeResult.stream) {
+                    if (Date.now() - lastChunkTime > chunkTimeout) break;
+                    lastChunkTime = Date.now();
+                    const chunkText = chunk.text();
+                    if (chunkText) { accumulatedText += chunkText; onUpdate(accumulatedText, accumulatedThought); }
+                }
+
+                const nudgeResponse = await withTimeout(
+                    nudgeResult.response,
+                    ORCHESTRATION_STREAM_TIMEOUT,
+                    'Orchestration rescue nudge timed out'
+                );
+                const nudgeCalls = nudgeResponse.functionCalls();
+
+                if (nudgeCalls && nudgeCalls.length > 0) {
+                    console.log(`🚨 ORCHESTRATION RESCUE: Got ${nudgeCalls.length} call(s):`, nudgeCalls.map(c => c.name).join(', '));
+                    const nudgeResponses = [];
+
+                    for (const call of nudgeCalls) {
+                        let res: any = {};
+                        try {
+                            const args = call.args as any;
+                            if (call.name === 'get_relationship_status') res = await executors.getRelationshipStatus();
+                            else if (call.name === 'get_life_context') res = await executors.getLifeContext(args);
+                            else if (call.name === 'propose_orchestration') { res = { status: await executors.proposeOrchestration(args) }; proposedOrchestration = true; }
+                            else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
+                            else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
+                            else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
+                            else if (call.name === 'move_tasks') res = { status: await executors.moveTasks(args.task_identifiers, args.target_date) };
+                            else if (call.name === 'save_memory') res = { status: await executors.saveMemory(args.content, args.type) };
+                        } catch(e) { res = { error: 'Failed' }; }
+                        nudgeResponses.push({ functionResponse: { name: call.name, response: { result: res } } });
+                    }
+
+                    onUpdate(accumulatedText, accumulatedThought);
+                    const nudgeFinal = await this.chat!.sendMessageStream(nudgeResponses);
+                    for await (const chunk of nudgeFinal.stream) {
+                        const chunkText = chunk.text();
+                        if (chunkText) { accumulatedText += chunkText; onUpdate(accumulatedText, accumulatedThought); }
+                    }
+                } else {
+                    console.warn('⚠️ ORCHESTRATION RESCUE: AI still did not call propose_orchestration after nudge.');
                 }
             }
         } else {
