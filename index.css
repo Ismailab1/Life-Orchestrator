@@ -16,3 +16,42 @@
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+
+/* Task action button swipe animations */
+@keyframes swipe-in-right {
+  from {
+    transform: translateX(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes swipe-out-left {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-12px);
+    opacity: 0;
+  }
+}
+
+.animate-swipe-in-1 {
+  animation: swipe-in-right 0.2s ease-out both;
+}
+
+.animate-swipe-in-2 {
+  animation: swipe-in-right 0.2s ease-out 0.08s both;
+}
+
+.animate-swipe-in-3 {
+  animation: swipe-in-right 0.2s ease-out 0.16s both;
+}
+
+.animate-swipe-out {
+  animation: swipe-out-left 0.15s ease-in both;
+}

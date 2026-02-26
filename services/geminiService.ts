@@ -40,7 +40,7 @@ import {
   SchemaType
 } from "@google/generative-ai";
 import { SYSTEM_INSTRUCTION, REFLECTION_MODE_INSTRUCTION, ACTIVE_MODE_INSTRUCTION, PLANNING_MODE_INSTRUCTION } from "../constants";
-import { LifeInventory, RelationshipLedger, OrchestrationProposal, UpdateRelationshipArgs, Task } from "../types";
+import { LifeInventory, RelationshipLedger, OrchestrationProposal, UpdateRelationshipArgs, LogCheckinArgs, Task } from "../types";
 
 /**
  * Timeout Utility - Wraps promises with timeout protection
@@ -100,6 +100,10 @@ const generateFallbackMessage = (functionCalls: any[]): string => {
   
   if (callCounts['update_relationship_status']) {
     messages.push(`I've updated ${callCounts['update_relationship_status']} contact${callCounts['update_relationship_status'] > 1 ? 's' : ''} in your Kinship Ledger.`);
+  }
+  
+  if (callCounts['log_checkin']) {
+    messages.push(`I've logged your check-in${callCounts['log_checkin'] > 1 ? 's' : ''} in the Kinship Ledger.`);
   }
   
   if (callCounts['propose_orchestration']) {
@@ -180,6 +184,11 @@ const proposeOrchestrationTool: FunctionDeclaration = {
                 weekDays: { type: SchemaType.ARRAY, items: { type: SchemaType.NUMBER } },
                 dayOfMonth: { type: SchemaType.NUMBER }
               }
+            },
+            linkedContact: {
+              type: SchemaType.ARRAY,
+              items: { type: SchemaType.STRING },
+              description: 'Kinship Ledger contact key(s) linked to this task. Pass these through UNCHANGED from get_life_context — do NOT drop or alter them. Completing this task auto-logs a check-in for every contact listed.'
             }
           },
           required: ['title', 'type', 'duration', 'priority', 'category']
@@ -227,7 +236,13 @@ const addTaskTool: FunctionDeclaration = {
                 weekDays: { type: SchemaType.ARRAY, items: { type: SchemaType.NUMBER } },
                 dayOfMonth: { type: SchemaType.NUMBER }
             }
-        }
+        },
+        linkedContact: {
+          type: SchemaType.ARRAY,
+          items: { type: SchemaType.STRING },
+          description: "List of contact lowercase name/key(s) from the Kinship Ledger Roster for people involved in this task. Use a single-element array for one contact (e.g. ['sarah']), or multiple elements for tasks involving several people (e.g. ['mom', 'grandma'] for a family dinner). Completing the task auto-logs a check-in for EVERY contact in this list. REQUIRED for any task that involves calling, visiting, or meeting Kinship Ledger contacts."
+        },
+        completed: { type: SchemaType.BOOLEAN, description: 'Optional. Whether the task has been completed. Defaults to false.' },
       },
       required: ['title', 'type', 'duration', 'priority', 'category'],
     },
@@ -290,6 +305,32 @@ const moveTasksTool: FunctionDeclaration = {
     }
 };
 
+const logCheckinTool: FunctionDeclaration = {
+    name: 'log_checkin',
+    description: 'Records that the user contacted, spoke to, called, texted, or met with someone. Stamps last_contact to the current viewing date and auto-computes the new relationship status from the kinship debt formula. Use this (NOT update_relationship_status) whenever the user says they talked to, called, saw, or checked in with someone. For contacts not in the ledger, omit confirmed (or set false) to show a proposal card, or set confirmed: true only if the user explicitly asked to add them.',
+    parameters: {
+        type: SchemaType.OBJECT,
+        properties: {
+            person_name: { type: SchemaType.STRING, description: 'Name of the person they checked in with. Must match the EXACT name from the Kinship Ledger Roster in the session context.' },
+            notes: { type: SchemaType.STRING, description: 'Optional brief note about the interaction (e.g. "Had a great lunch catch-up").' },
+            confirmed: { type: SchemaType.BOOLEAN, description: 'Set true ONLY when the user explicitly asks to add this person to their ledger. Omit or set false to show a proposal card first.' }
+        },
+        required: ['person_name']
+    }
+};
+
+const completeTaskTool: FunctionDeclaration = {
+    name: 'complete_task',
+    description: 'Marks a task as completed. If the task has a linked contact, automatically logs a check-in for that contact — no need to also call log_checkin separately. Use this whenever the user says they finished, completed, are done with, or have wrapped up a task. Prefer this over log_checkin when the user\'s message is about completing a task (e.g. "I finished the appointment with Grandma" → complete the "Grandma Physical Therapy" task, not just log a check-in).',
+    parameters: {
+        type: SchemaType.OBJECT,
+        properties: {
+            task_title: { type: SchemaType.STRING, description: 'The title or partial title of the task to mark complete. Used for fuzzy matching against the task inventory.' }
+        },
+        required: ['task_title']
+    }
+};
+
 /**
  * ToolExecutors Interface
  * DESIGN DECISION: Type-safe executor contract
@@ -305,6 +346,8 @@ interface ToolExecutors {
   getLifeContext: (args?: { date?: string }) => Promise<LifeInventory>;
   proposeOrchestration: (proposal: OrchestrationProposal) => Promise<string>;
   updateRelationshipStatus: (args: UpdateRelationshipArgs) => Promise<string>;
+  logCheckin: (args: LogCheckinArgs) => Promise<string>;
+  completeTask: (args: { task_title: string }) => Promise<string>;
   addTask: (task: Omit<Task, 'id'>) => Promise<string>;
   deleteTask: (title: string) => Promise<string>;
   deleteRelationshipStatus: (name: string) => Promise<string>;
@@ -371,6 +414,8 @@ export class GeminiService {
       getLifeContextTool, 
       proposeOrchestrationTool,
       updateRelationshipStatusTool,
+      logCheckinTool,
+      completeTaskTool,
       addTaskTool,
       deleteTaskTool,
       deleteRelationshipStatusTool,
@@ -514,7 +559,8 @@ User Timezone: ${timezone}`;
     executors: ToolExecutors,
     onUpdate: (text: string, thought: string) => void,
     currentTimeString?: string,
-    isOrchestration: boolean = false
+    isOrchestration: boolean = false,
+    onComplete?: (text: string, thought: string) => void
   ): Promise<{ text: string, thought: string }> {
     // Ensure session exists - if not, throw error as session should be initialized by caller
     if (!this.chat) {
@@ -546,6 +592,7 @@ User Timezone: ${timezone}`;
     let accumulatedText = "";
     let accumulatedThought = "";
     let proposedOrchestration = false; // Track if propose_orchestration was successfully called
+    const executedFingerprints = new Set<string>(); // Dedup guard: prevent identical tool calls from running twice in one turn
 
     try {
         const result = await this.chat!.sendMessageStream(parts);
@@ -569,7 +616,7 @@ User Timezone: ${timezone}`;
             const chunkText = chunk.text();
             if (chunkText) {
                 accumulatedText += chunkText;
-                onUpdate(accumulatedText, accumulatedThought);
+                // onUpdate suppressed — instantaneous mode: text surfaces once at end via finally
             }
             
             // Check for function calls in the chunk (aggregated at end usually, but inspecting)
@@ -598,6 +645,12 @@ User Timezone: ${timezone}`;
                  let res: any = {};
                  try {
                      const args = call.args as any;
+                     const _fp = `${call.name}:${JSON.stringify(args ?? {})}`;
+                     if (executedFingerprints.has(_fp)) {
+                         console.log(`⏭️ Skipping duplicate tool call: ${call.name}`);
+                         res = { status: 'already_executed_this_turn' };
+                     } else {
+                     executedFingerprints.add(_fp);
                      executedCalls.push({ name: call.name, args }); // Track this call
                      
                      if (call.name === 'get_relationship_status') res = await executors.getRelationshipStatus();
@@ -613,11 +666,14 @@ User Timezone: ${timezone}`;
                          }
                      }
                      else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
+                     else if (call.name === 'log_checkin') res = { status: await executors.logCheckin(args) };
+                     else if (call.name === 'complete_task') res = { status: await executors.completeTask(args) };
                      else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
                      else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
                      else if (call.name === 'delete_relationship_status') res = { status: await executors.deleteRelationshipStatus(args.person_name) };
                      else if (call.name === 'save_memory') res = { status: await executors.saveMemory(args.content, args.type) };
                      else if (call.name === 'move_tasks') res = { status: await executors.moveTasks(args.task_identifiers, args.target_date) };
+                     } // end dedup guard
                  } catch(e) { res = { error: "Failed" }; }
                  
                  // Standard SDK expects specific response format
@@ -629,9 +685,8 @@ User Timezone: ${timezone}`;
                  });
             }
             
-            // IMPORTANT: Force UI update after executing all functions to show pending contacts/proposals immediately
-            console.log('✅ All functions executed. Triggering UI update for pending items...');
-            onUpdate(accumulatedText, accumulatedThought);
+            // Functions executed — UI update deferred to finally block (instantaneous mode)
+            console.log('✅ All functions executed. Continuing to next stream round...');
             
             // Send function responses (with timeout protection)
             console.log('🔄 Sending function results back to AI for next action...');
@@ -639,6 +694,10 @@ User Timezone: ${timezone}`;
             
             lastChunkTime = Date.now();
             let secondStreamHadContent = false;
+            
+            // Reset accumulation: only show the final round's text (instantaneous mode)
+            accumulatedText = "";
+            accumulatedThought = "";
             
             for await (const chunk of functionResult.stream) {
                 // Check for chunk timeout in second stream
@@ -652,7 +711,7 @@ User Timezone: ${timezone}`;
                 const chunkText = chunk.text();
                 if (chunkText) {
                     accumulatedText += chunkText;
-                    onUpdate(accumulatedText, accumulatedThought);
+                    // onUpdate suppressed — instantaneous mode
                     secondStreamHadContent = true;
                 }
             }
@@ -675,6 +734,12 @@ User Timezone: ${timezone}`;
                     let res: any = {};
                     try {
                         const args = call.args as any;
+                        const _fp2 = `${call.name}:${JSON.stringify(args ?? {})}`;
+                        if (executedFingerprints.has(_fp2)) {
+                            console.log(`⏭️ Skipping duplicate tool call: ${call.name}`);
+                            res = { status: 'already_executed_this_turn' };
+                        } else {
+                        executedFingerprints.add(_fp2);
                         secondExecutedCalls.push({ name: call.name, args });
                         
                         if (call.name === 'get_relationship_status') res = await executors.getRelationshipStatus();
@@ -690,11 +755,14 @@ User Timezone: ${timezone}`;
                             }
                         }
                         else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
+                        else if (call.name === 'log_checkin') res = { status: await executors.logCheckin(args) };
+                        else if (call.name === 'complete_task') res = { status: await executors.completeTask(args) };
                         else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
                         else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
                         else if (call.name === 'delete_relationship_status') res = { status: await executors.deleteRelationshipStatus(args.person_name) };
                         else if (call.name === 'save_memory') res = { status: await executors.saveMemory(args.content, args.type) };
                         else if (call.name === 'move_tasks') res = { status: await executors.moveTasks(args.task_identifiers, args.target_date) };
+                        } // end dedup guard
                     } catch(e) { res = { error: "Failed" }; }
                     
                     secondFunctionResponses.push({
@@ -705,15 +773,18 @@ User Timezone: ${timezone}`;
                     });
                 }
                 
-                // IMPORTANT: Force UI update after second batch to show pending items
-                console.log('✅ Second function batch executed. Triggering UI update...');
-                onUpdate(accumulatedText, accumulatedThought);
+                // Functions executed — UI update deferred to finally block (instantaneous mode)
+                console.log('✅ Second function batch executed. Continuing to final stream round...');
                 
                 // Send second batch of function responses
                 console.log('🔄 Sending second batch of function results back to AI...');
                 const thirdResult = await this.chat!.sendMessageStream(secondFunctionResponses);
                 
                 lastChunkTime = Date.now();
+                // Reset accumulation before round 3: only the final round's text is shown
+                accumulatedText = "";
+                accumulatedThought = "";
+                
                 for await (const chunk of thirdResult.stream) {
                     const timeout = isOrchestration ? chunkTimeout : CHUNK_TIMEOUT;
                     if (Date.now() - lastChunkTime > timeout) {
@@ -725,7 +796,7 @@ User Timezone: ${timezone}`;
                     const chunkText = chunk.text();
                     if (chunkText) {
                         accumulatedText += chunkText;
-                        onUpdate(accumulatedText, accumulatedThought);
+                        // onUpdate suppressed — instantaneous mode
                         secondStreamHadContent = true;
                     }
                 }
@@ -757,11 +828,15 @@ User Timezone: ${timezone}`;
                     ['[SYSTEM OVERRIDE: You acknowledged the orchestration request but did not call propose_orchestration. You MUST call propose_orchestration RIGHT NOW with a complete schedule for this day. This is mandatory — do not output any more text, just call propose_orchestration immediately.]']
                 );
 
+                // Reset accumulation before nudge stream
+                accumulatedText = "";
+                accumulatedThought = "";
+                
                 for await (const chunk of nudgeResult.stream) {
                     if (Date.now() - lastChunkTime > chunkTimeout) break;
                     lastChunkTime = Date.now();
                     const chunkText = chunk.text();
-                    if (chunkText) { accumulatedText += chunkText; onUpdate(accumulatedText, accumulatedThought); }
+                    if (chunkText) { accumulatedText += chunkText; /* onUpdate suppressed — instantaneous mode */ }
                 }
 
                 const nudgeResponse = await withTimeout(
@@ -779,23 +854,35 @@ User Timezone: ${timezone}`;
                         let res: any = {};
                         try {
                             const args = call.args as any;
+                            const _fpN = `${call.name}:${JSON.stringify(args ?? {})}`;
+                            if (executedFingerprints.has(_fpN)) {
+                                console.log(`⏭️ Skipping duplicate tool call: ${call.name}`);
+                                res = { status: 'already_executed_this_turn' };
+                            } else {
+                            executedFingerprints.add(_fpN);
                             if (call.name === 'get_relationship_status') res = await executors.getRelationshipStatus();
                             else if (call.name === 'get_life_context') res = await executors.getLifeContext(args);
                             else if (call.name === 'propose_orchestration') { res = { status: await executors.proposeOrchestration(args) }; proposedOrchestration = true; }
                             else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
+                            else if (call.name === 'log_checkin') res = { status: await executors.logCheckin(args) };
+                            else if (call.name === 'complete_task') res = { status: await executors.completeTask(args) };
                             else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
                             else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
                             else if (call.name === 'move_tasks') res = { status: await executors.moveTasks(args.task_identifiers, args.target_date) };
                             else if (call.name === 'save_memory') res = { status: await executors.saveMemory(args.content, args.type) };
+                            } // end dedup guard
                         } catch(e) { res = { error: 'Failed' }; }
                         nudgeResponses.push({ functionResponse: { name: call.name, response: { result: res } } });
                     }
 
-                    onUpdate(accumulatedText, accumulatedThought);
+                    // Functions executed — UI update deferred to finally block (instantaneous mode)
+                    // Reset accumulation before nudge final stream
+                    accumulatedText = "";
+                    accumulatedThought = "";
                     const nudgeFinal = await this.chat!.sendMessageStream(nudgeResponses);
                     for await (const chunk of nudgeFinal.stream) {
                         const chunkText = chunk.text();
-                        if (chunkText) { accumulatedText += chunkText; onUpdate(accumulatedText, accumulatedThought); }
+                        if (chunkText) { accumulatedText += chunkText; /* onUpdate suppressed — instantaneous mode */ }
                     }
                 } else {
                     console.warn('⚠️ ORCHESTRATION RESCUE: AI still did not call propose_orchestration after nudge.');
@@ -813,6 +900,13 @@ User Timezone: ${timezone}`;
             return { text: accumulatedText, thought: accumulatedThought };
         }
         throw e;
+    } finally {
+        // Commit the final text to UI exactly once (instantaneous mode — no per-chunk updates).
+        // onComplete fires immediately after to flush pending proposals/contacts in the same React batch.
+        onUpdate(accumulatedText, accumulatedThought);
+        if (onComplete) {
+            onComplete(accumulatedText, accumulatedThought);
+        }
     }
 
     return { text: accumulatedText, thought: accumulatedThought };
@@ -859,6 +953,8 @@ User Timezone: ${timezone}`;
                      else if (call.name === 'get_life_context') res = await executors.getLifeContext(args);
                      else if (call.name === 'propose_orchestration') res = { status: await executors.proposeOrchestration(args) };
                      else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
+                     else if (call.name === 'log_checkin') res = { status: await executors.logCheckin(args) };
+                     else if (call.name === 'complete_task') res = { status: await executors.completeTask(args) };
                      else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
                      else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
                      else if (call.name === 'delete_relationship_status') res = { status: await executors.deleteRelationshipStatus(args.person_name) };

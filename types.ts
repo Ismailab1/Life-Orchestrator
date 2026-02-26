@@ -87,6 +87,51 @@ export interface RelationshipLedger {
 }
 
 /**
+ * calculateRelationshipStatus: Pure kinship debt formula implementation
+ * DESIGN DECISION: Single source of truth for status derivation.
+ *
+ * Debt = priority × days since last_contact
+ *   < 5   → Stable
+ *   5–10  → Needs Attention
+ *   10–20 → Critical
+ *   > 20  → Overdue
+ *
+ * Used by:
+ *  - logCheckin executor (to auto-derive status after a check-in)
+ *  - App.tsx load-time worsening-only recalculation
+ */
+export const calculateRelationshipStatus = (
+  priority: number,
+  lastContact: Date | string
+): Person['status'] => {
+  const last = typeof lastContact === 'string' ? new Date(lastContact) : lastContact;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  last.setHours(0, 0, 0, 0);
+  const days = Math.max(0, Math.floor((today.getTime() - last.getTime()) / (1000 * 60 * 60 * 24)));
+  const debt = priority * days;
+  if (debt > 20) return 'Overdue';
+  if (debt > 10) return 'Critical';
+  if (debt >= 5) return 'Needs Attention';
+  return 'Stable';
+};
+
+/**
+ * LogCheckinArgs: Arguments for the log_checkin LLM tool
+ * Distinct from UpdateRelationshipArgs — no manual status override.
+ * Status is auto-computed from the kinship debt formula after stamping last_contact.
+ */
+export interface LogCheckinArgs {
+  person_name: string;
+  notes?: string;
+  confirmed?: boolean;
+  /** Override the contact date (YYYY-MM-DD). Defaults to the currently viewed date.
+   *  Use when logging a check-in that happened on a past task date, not today.
+   */
+  date_override?: string;
+}
+
+/**
  * ApprovedOrchestration: Persisted orchestration state
  * DESIGN DECISION: Store accepted orchestrations to reduce redundant AI processing
  * 
@@ -182,6 +227,13 @@ export interface Task {
   attendees?: EventAttendee[];
   conferenceData?: ConferenceData;
   organizer?: EventOrganizer;
+  /** Name(s)/key(s) of Kinship Ledger contacts this task is linked to.
+   *  Accepts a single string for backward compatibility or an array for multiple contacts.
+   *  When the task is completed, a check-in is automatically logged for EVERY person listed.
+   */
+  linkedContact?: string | string[];
+  /** Whether the user has manually marked this task as done. */
+  completed?: boolean;
 }
 
 /**

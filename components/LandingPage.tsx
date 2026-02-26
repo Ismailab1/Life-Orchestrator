@@ -59,15 +59,23 @@ export const LandingPage: React.FC<Props> = ({ onStartDemo, onStartLive, onViewP
     },
     {
       question: "What is the 'Kinship Ledger' and how does relationship tracking work?",
-      answer: "The Kinship Ledger is a dynamic relationship health monitoring system. It tracks contacts with priority ratings (1-3) and calculates 'Kinship Debt' using the formula: Priority × Days Since Last Contact. When debt exceeds thresholds (&gt;5 = Needs Attention, &gt;10 = Critical), the AI proactively suggests check-ins during your daily briefings. This ensures important relationships never fall through the cracks during busy periods."
+      answer: "The Kinship Ledger is a dynamic relationship health monitoring system. It tracks contacts with priority ratings (1-3) and calculates 'Kinship Debt' using the formula: Priority × Days Since Last Contact. When debt exceeds thresholds (>5 = Needs Attention, >10 = Critical), the AI proactively suggests check-ins during your daily briefings. Tasks can be linked to one or more contacts — completing a task auto-logs a check-in for every person involved simultaneously. For example, marking a 'Family Dinner with Mom & Grandma' as done updates both contacts' timers in a single action."
     },
     {
       question: "What are 'Temporal Modes' and how do they work?",
-      answer: "Life Orchestrator operates in three intelligent modes based on date context: REFLECTION MODE (past dates) reviews what happened and verifies completed plans, ACTIVE MODE (today) focuses on same-day availability and immediate execution, and PLANNING MODE (future dates) optimizes capacity and prevents overload. The AI automatically switches modes and adjusts its communication style accordingly."
+      answer: "Life Orchestrator operates in three intelligent modes based on date context: REFLECTION MODE (past dates) reviews what happened and verifies completed plans, ACTIVE MODE (today) focuses on same-day availability and immediate execution, and PLANNING MODE (future dates) optimizes capacity and prevents overload. The AI automatically switches modes and adjusts its communication style accordingly. The calendar sidebar lets you click any day to instantly switch modes — past, today, or future."
+    },
+    {
+      question: "How does the calendar sidebar work?",
+      answer: "The calendar sits persistently beside the chat on desktop. Hover any day to see a rich preview of that day's tasks — including scheduled times, durations, category badges (Career, Health, Family, Life), and priority indicators. Click a day to navigate to it and switch the AI into the appropriate temporal mode. Tasks are sorted by time in the preview, with flexible (unscheduled) tasks shown below timed anchors."
     },
     {
       question: "How does capacity management prevent burnout?",
       answer: "The system enforces realistic daily capacity limits (8-10 hours of productive work). When you approach 10+ hours, it provides warnings. At 12+ hours, it automatically recommends redistributing low-priority tasks to future days. This proactive workload balancing prevents chronic overload while preserving your high-priority commitments like interviews and family time."
+    },
+    {
+      question: "Does orchestrating my day preserve relationship links on tasks?",
+      answer: "Yes. When you accept an orchestration proposal, every task's relationship links (linkedContact) are fully preserved. The AI passes them through unchanged, and the system has a fallback that restores links by task ID and title even if the model omits them. Completing any orchestrated task still auto-logs check-ins for all linked contacts exactly as before."
     },
     {
       question: "How does the AI learn my preferences?",
@@ -225,7 +233,7 @@ export const LandingPage: React.FC<Props> = ({ onStartDemo, onStartLive, onViewP
               <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-4">👥</div>
               <h3 className="text-xl font-bold text-white mb-3">Kinship Ledger</h3>
               <p className="text-slate-400 leading-relaxed text-sm">
-                Tracks relationship health using <strong className="text-emerald-400">Priority × Days Since Contact</strong>. When debt crosses thresholds (&gt;5 Needs Attention, &gt;10 Critical), the AI proactively suggests check-ins during your briefings.
+                Tracks relationship health using <strong className="text-emerald-400">Priority × Days Since Contact</strong>. When debt crosses thresholds (&gt;5 Needs Attention, &gt;10 Critical), the AI proactively suggests check-ins. Tasks can link to <strong className="text-emerald-400">multiple contacts at once</strong> — completing a task auto-logs a check-in for every person involved simultaneously.
               </p>
             </div>
 
@@ -241,9 +249,9 @@ export const LandingPage: React.FC<Props> = ({ onStartDemo, onStartLive, onViewP
             {/* Tool Calling */}
             <div className="bg-slate-800/50 rounded-2xl border border-white/10 p-8 hover:border-blue-500/50 transition-all">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-4">🛠️</div>
-              <h3 className="text-xl font-bold text-white mb-3">Structured Tools</h3>
+              <h3 className="text-xl font-bold text-white mb-3">Natural Language Control</h3>
               <p className="text-slate-400 leading-relaxed text-sm">
-                Powered by <strong className="text-blue-400">Gemini 2.5 Pro</strong> with 8 autonomous tools: get_relationship_status, propose_orchestration, add_task, move_tasks, update_relationship_status, save_memory, and more.
+                Just talk. <em className="text-blue-400">"I grabbed coffee with Sarah"</em> logs a check-in. <em className="text-blue-400">"Move my gym session to Thursday"</em> reschedules it. Powered by <strong className="text-blue-400">Gemini 2.5 Pro</strong> with 10+ autonomous tools — the AI always calls the right one behind the scenes.
               </p>
             </div>
 
@@ -259,9 +267,9 @@ export const LandingPage: React.FC<Props> = ({ onStartDemo, onStartLive, onViewP
             {/* Google Calendar Sync */}
             <div className="bg-slate-800/50 rounded-2xl border border-white/10 p-8 hover:border-violet-500/50 transition-all">
               <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-xl mb-4">📆</div>
-              <h3 className="text-xl font-bold text-white mb-3">Calendar Integration</h3>
+              <h3 className="text-xl font-bold text-white mb-3">Calendar Sidebar</h3>
               <p className="text-slate-400 leading-relaxed text-sm">
-                Optional <strong className="text-violet-400">Google Calendar</strong> sync imports existing events as "Fixed" anchors. Export AI-generated orchestrations back to your calendar with one click—all processed locally in your browser.
+                A persistent calendar sits beside the chat. <strong className="text-violet-400">Hover any day</strong> for a rich preview — scheduled times, durations, priorities, and category badges. Click a day to instantly switch the AI between Reflection, Active, and Planning modes. Optional <strong className="text-violet-400">Google Calendar sync</strong> imports events and exports orchestrations with one click.
               </p>
             </div>
           </div>
@@ -279,6 +287,24 @@ export const LandingPage: React.FC<Props> = ({ onStartDemo, onStartLive, onViewP
             <p className="text-slate-400 max-w-3xl mx-auto leading-relaxed">
               Everything runs in your browser. Your Kinship Ledger, Life Inventory, conversation history, and Memory Bank live in localStorage (5MB). Google Gemini processes requests via HTTPS but doesn't store your data. We don't have analytics, tracking, or databases—just your device and Google's AI.
             </p>
+            <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto text-center">
+              <div className="bg-slate-900/60 rounded-xl p-4 border border-white/5">
+                <div className="text-2xl font-bold text-indigo-400">10+</div>
+                <div className="text-xs text-slate-500 mt-1 uppercase tracking-wide">AI Tools</div>
+              </div>
+              <div className="bg-slate-900/60 rounded-xl p-4 border border-white/5">
+                <div className="text-2xl font-bold text-emerald-400">3</div>
+                <div className="text-xs text-slate-500 mt-1 uppercase tracking-wide">Temporal Modes</div>
+              </div>
+              <div className="bg-slate-900/60 rounded-xl p-4 border border-white/5">
+                <div className="text-2xl font-bold text-violet-400">∞</div>
+                <div className="text-xs text-slate-500 mt-1 uppercase tracking-wide">Contacts Tracked</div>
+              </div>
+              <div className="bg-slate-900/60 rounded-xl p-4 border border-white/5">
+                <div className="text-2xl font-bold text-amber-400">0</div>
+                <div className="text-xs text-slate-500 mt-1 uppercase tracking-wide">Servers Used</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

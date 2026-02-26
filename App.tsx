@@ -22,7 +22,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { INITIAL_INVENTORY, INITIAL_LEDGER, EMPTY_INVENTORY, EMPTY_LEDGER, GOOGLE_CLIENT_ID } from './constants';
-import { LifeInventory, RelationshipLedger, ChatMessage, OrchestrationProposal, UpdateRelationshipArgs, Person, Task, Memory, ChatHistory, StorageStats, GoogleCalendarEvent, ApprovedOrchestration } from './types';
+import { LifeInventory, RelationshipLedger, ChatMessage, OrchestrationProposal, UpdateRelationshipArgs, LogCheckinArgs, calculateRelationshipStatus, Person, Task, Memory, ChatHistory, StorageStats, GoogleCalendarEvent, ApprovedOrchestration } from './types';
 import { KinshipLedgerView } from './components/KinshipLedger';
 import { CareerInventoryView } from './components/CareerInventory';
 import { ChatInterface } from './components/ChatInterface';
@@ -422,68 +422,68 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
             return toDateString(d);
         };
         
-        // Create dates for this week: Sunday → Saturday
-        // Feb 22, 2026 is a Sunday (today = day 0, week ends on Saturday Feb 28)
-        const day_0  = getDate(0); // Sunday  (today,    Feb 22)
-        const day_p1 = getDate(1); // Monday  (tomorrow, Feb 23)
-        const day_p2 = getDate(2); // Tuesday             Feb 24
-        const day_p3 = getDate(3); // Wednesday           Feb 25
-        const day_p4 = getDate(4); // Thursday            Feb 26
-        const day_p5 = getDate(5); // Friday              Feb 27
-        const day_p6 = getDate(6); // Saturday            Feb 28
+        // Create dates spanning today + 6 days forward
+        const day_0  = getDate(0); // Today
+        const day_p1 = getDate(1); // Tomorrow
+        const day_p2 = getDate(2); // +2 days
+        const day_p3 = getDate(3); // +3 days
+        const day_p4 = getDate(4); // +4 days
+        const day_p5 = getDate(5); // +5 days
+        const day_p6 = getDate(6); // +6 days
         
         return {
             fixed: [
-                // Sunday - Today (ACTIVE - Interview day)
-                { id: 'w0_1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family', date: day_0 },
-                { id: 'w0_2', title: 'Interview with Capital One', type: 'fixed', time: '2:00 PM', duration: '1h', priority: 'high', category: 'Career', date: day_0 },
+                // Today (ACTIVE - Interview day)
+                { id: 'w0_1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family', date: day_0, linkedContact: ['grandma'] },
+                { id: 'w0_2', title: 'Interview with Capital One', type: 'fixed', time: '2:00 PM', duration: '1h', priority: 'high', category: 'Career', date: day_0, linkedContact: ['jordan'] },
 
-                // Monday - Tomorrow (PLANNING - Launch day)
+                // Day +1 (PLANNING - Launch day)
                 { id: 'w1_1', title: '[PLANNED] Project Launch: Phase 1', type: 'fixed', time: '9:00 AM', duration: '3h', priority: 'high', category: 'Career', date: day_p1 },
-                { id: 'w1_2', title: '[PLANNED] Team Retrospective', type: 'fixed', time: '4:00 PM', duration: '1h', priority: 'medium', category: 'Career', date: day_p1 },
+                { id: 'w1_2', title: '[PLANNED] Team Retrospective', type: 'fixed', time: '4:00 PM', duration: '1h', priority: 'medium', category: 'Career', date: day_p1, linkedContact: ['jordan'] },
 
-                // Tuesday (PLANNING - Outdoor + recovery)
-                { id: 'w2_1', title: '[PLANNED] Hiking with Alex @ Redwood Trail', type: 'fixed', time: '8:00 AM', duration: '3h', priority: 'medium', category: 'Life', date: day_p2 },
+                // Day +2 (PLANNING - Outdoor + social)
+                { id: 'w2_1', title: '[PLANNED] Hiking with Alex @ Redwood Trail', type: 'fixed', time: '8:00 AM', duration: '3h', priority: 'medium', category: 'Life', date: day_p2, linkedContact: ['alex'] },
 
-                // Wednesday (PLANNING - Mid-week sync)
-                { id: 'w3_1', title: '[PLANNED] Strategy Meeting', type: 'fixed', time: '11:00 AM', duration: '2h', priority: 'high', category: 'Career', date: day_p3 },
+                // Day +3 (PLANNING - Mid-week sync)
+                { id: 'w3_1', title: '[PLANNED] Strategy Meeting', type: 'fixed', time: '11:00 AM', duration: '2h', priority: 'high', category: 'Career', date: day_p3, linkedContact: ['jordan'] },
 
-                // Thursday (PLANNING - Engineering day)
-                { id: 'w4_1', title: '[PLANNED] Team Standup (Engineering)', type: 'fixed', time: '9:30 AM', duration: '30m', priority: 'medium', category: 'Career', date: day_p4 },
-                { id: 'w4_2', title: '[PLANNED] Call with Grandpa', type: 'fixed', time: '10:30 AM', duration: '30m', priority: 'high', category: 'Family', date: day_p4 },
+                // Day +4 (PLANNING - Engineering + family)
+                { id: 'w4_1', title: '[PLANNED] Team Standup (Engineering)', type: 'fixed', time: '9:30 AM', duration: '30m', priority: 'medium', category: 'Career', date: day_p4, linkedContact: ['jordan'] },
+                { id: 'w4_2', title: '[PLANNED] Call with Grandpa', type: 'fixed', time: '10:30 AM', duration: '30m', priority: 'high', category: 'Family', date: day_p4, linkedContact: ['grandpa'] },
 
-                // Friday (PLANNING - Demo day)
-                { id: 'w5_1', title: '[PLANNED] Product Demo to Stakeholders', type: 'fixed', time: '3:00 PM', duration: '1h', priority: 'high', category: 'Career', date: day_p5 },
+                // Day +5 (PLANNING - Demo day)
+                { id: 'w5_1', title: '[PLANNED] Product Demo to Stakeholders', type: 'fixed', time: '3:00 PM', duration: '1h', priority: 'high', category: 'Career', date: day_p5, linkedContact: ['jordan'] },
 
-                // Saturday (PLANNING - Weekend social)
-                { id: 'w6_1', title: '[PLANNED] Dinner with Mom', type: 'fixed', time: '6:30 PM', duration: '2h', priority: 'high', category: 'Family', date: day_p6 }
+                // Day +6 (PLANNING - Weekend social)
+                { id: 'w6_1', title: '[PLANNED] Dinner with Mom', type: 'fixed', time: '6:30 PM', duration: '2h', priority: 'high', category: 'Family', date: day_p6, linkedContact: ['mom'] }
             ],
             flexible: [
-                // Sunday - Today (ACTIVE)
+                // Today
                 { id: 'wf0_1', title: 'Python Debugging Practice', type: 'flexible', duration: '2h', priority: 'medium', category: 'Career', date: day_0 },
                 { id: 'wf0_2', title: 'Gym / Cardio', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_0 },
+                { id: 'wf0_3', title: 'Check-in with Sarah (career debrief)', type: 'flexible', duration: '30m', priority: 'high', category: 'Career', date: day_0, linkedContact: ['sarah'] },
 
-                // Monday (PLANNING - Work week)
+                // Day +1
                 { id: 'wf1_1', title: 'Documentation Write-up', type: 'flexible', duration: '1.5h', priority: 'medium', category: 'Career', date: day_p1 },
                 { id: 'wf1_2', title: 'Evening Gym Session', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_p1 },
 
-                // Tuesday (PLANNING - Post-hike recovery)
+                // Day +2
                 { id: 'wf2_1', title: 'Grocery Run (Meal Prep)', type: 'flexible', duration: '1h', priority: 'low', category: 'Life', date: day_p2 },
                 { id: 'wf2_2', title: 'Read: "Range" by David Epstein', type: 'flexible', duration: '1h', priority: 'low', category: 'Life', date: day_p2 },
 
-                // Wednesday (PLANNING)
+                // Day +3
                 { id: 'wf3_1', title: 'Meal Prep for Week', type: 'flexible', duration: '2h', priority: 'medium', category: 'Health', date: day_p3 },
                 { id: 'wf3_2', title: 'Review Weekly Goals', type: 'flexible', duration: '30m', priority: 'medium', category: 'Career', date: day_p3 },
 
-                // Thursday (PLANNING)
+                // Day +4
                 { id: 'wf4_1', title: 'Morning Gym Session', type: 'flexible', duration: '1h', priority: 'medium', category: 'Health', date: day_p4 },
                 { id: 'wf4_2', title: 'Code Review: Auth Module', type: 'flexible', duration: '1h', priority: 'medium', category: 'Career', date: day_p4 },
 
-                // Friday (PLANNING)
+                // Day +5
                 { id: 'wf5_1', title: 'Yoga Class', type: 'flexible', duration: '45m', priority: 'medium', category: 'Health', date: day_p5 },
                 { id: 'wf5_2', title: 'Interview Debrief Notes', type: 'flexible', duration: '1h', priority: 'medium', category: 'Career', date: day_p5 },
 
-                // Saturday (PLANNING - Weekend)
+                // Day +6
                 { id: 'wf6_1', title: 'Morning Run (5k)', type: 'flexible', duration: '30m', priority: 'medium', category: 'Health', date: day_p6 },
                 { id: 'wf6_2', title: 'Apartment Deep Clean', type: 'flexible', duration: '2h', priority: 'low', category: 'Life', date: day_p6 }
             ]
@@ -630,11 +630,11 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
                       optimized_timeline: "10:00 AM - Grandma PT\n12:00 PM - Python Practice (2h technical warm-up)\n2:00 PM - Gym/Cardio (burn off nerves) ✓\n3:30 PM - Capital One Interview 🎯\n5:00 PM - Call with Sarah (post-interview debrief)",
                       reasoning: "Gym moves into the new 2:00 PM gap—exercise is proven to reduce pre-interview anxiety. Python practice stays at noon so your technical mind is fresh. Sarah's debrief shifts to 5 PM, right after results are fresh. Net result: same tasks, better sequencing for a high-stakes interview day.",
                       schedule: [
-                        { id: 'w0_1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family' },
+                        { id: 'w0_1', title: 'Grandma Physical Therapy', type: 'fixed', time: '10:00 AM', duration: '1h', priority: 'high', category: 'Family', linkedContact: ['grandma'] },
                         { id: 'wf0_1', title: 'Python Debugging Practice', type: 'fixed', time: '12:00 PM', duration: '2h', priority: 'high', category: 'Career' },
                         { id: 'wf0_2', title: 'Gym / Cardio', type: 'fixed', time: '2:00 PM', duration: '1h', priority: 'medium', category: 'Health' },
                         { id: 'w0_2', title: 'Interview with Capital One', type: 'fixed', time: '3:30 PM', duration: '1h', priority: 'high', category: 'Career' },
-                        { id: 'wf0_3', title: 'Check-in call with Sarah', type: 'fixed', time: '5:00 PM', duration: '30m', priority: 'high', category: 'Family' }
+                        { id: 'wf0_3', title: 'Check-in with Sarah (career debrief)', type: 'fixed', time: '5:00 PM', duration: '30m', priority: 'high', category: 'Career', linkedContact: ['sarah'] }
                       ]
                   }}
               ],
@@ -792,6 +792,29 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
 
   const ledgerRef = useRef<RelationshipLedger>(ledger);
   useEffect(() => { ledgerRef.current = ledger; }, [ledger]);
+
+  // Worsening-only auto-recalculation: run once on mount.
+  // Time can degrade a status, but only an explicit log_checkin can improve it.
+  // This ensures statuses stay accurate after the app has been closed for several days.
+  useEffect(() => {
+    if (mode === 'demo') return; // Never mutate demo data
+    const SEVERITY: Record<Person['status'], number> = { 'Stable': 0, 'Needs Attention': 1, 'Critical': 2, 'Overdue': 3 };
+    setLedger(prev => {
+      let changed = false;
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        const p = next[key] as Person;
+        const computed = calculateRelationshipStatus(p.priority, p.last_contact);
+        if (SEVERITY[computed] > SEVERITY[p.status]) {
+          next[key] = { ...p, status: computed };
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — run once on mount only
+
   const inventoryRef = useRef<LifeInventory>(inventory);
   useEffect(() => { inventoryRef.current = inventory; }, [inventory]);
 
@@ -851,6 +874,13 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       const orchestrationStatus = activeOrchestration && activeOrchestration.isActive
         ? `ACTIVE since ${new Date(activeOrchestration.approvedAt).toLocaleString()} - Day already orchestrated`
         : 'NONE - Day not orchestrated';
+
+      // Build contact roster so LLM uses exact stored names in tool calls
+      const reinitRoster = ledgerRef.current;
+      const reinitKeys = Object.keys(reinitRoster);
+      const reinitRosterContext = reinitKeys.length > 0
+        ? `\n\n== KINSHIP LEDGER ROSTER ==\n(Use the EXACT Name below when calling log_checkin or update_relationship_status — do NOT paraphrase or substitute relation words)\n${reinitKeys.map(k => { const p = reinitRoster[k] as Person; return `- ${p.name} (${p.relation}) [${p.category}]`; }).join('\n')}`
+        : '';
       
       geminiService.startNewSession(`
 Session Context:
@@ -866,7 +896,7 @@ IMPORTANT - When user says "this day", "today", "tonight":
 Current Session Time: ${getModeTime()}
 User Mode: ${mode}
 User Timezone: ${timezone}
-${memoryContext}`);
+${memoryContext}${reinitRosterContext}`);
     }
     
     const currentDayMessages = messages;
@@ -923,7 +953,17 @@ ${memoryContext}`);
               if (last && last.role === 'model' && last.id === modelMsgId) {
                   last.text = streamText;
                   last.thought = streamThought;
-                  // Show proposals immediately during streaming
+              }
+              return newArr;
+          });
+          if (streamText || streamThought) setIsLoading(false);
+      }, getModeTime(), isOrchestration, (finalText, finalThought) => {
+          // onComplete: flush pending contacts/proposals into the message ONLY after
+          // the full AI response has finished streaming, preventing mid-stream card rendering.
+          updateCurrentDayMessages(prev => {
+              const newArr = [...prev];
+              const last = newArr[newArr.length - 1];
+              if (last && last.role === 'model' && last.id === modelMsgId) {
                   if (pendingProposalRef.current && !last.proposal) {
                       last.proposal = pendingProposalRef.current;
                       pendingProposalRef.current = null;
@@ -933,10 +973,9 @@ ${memoryContext}`);
                       pendingContactRef.current = [];
                   }
               }
-              return newArr;
+              return [...newArr];
           });
-          if (streamText || streamThought) setIsLoading(false);
-      }, getModeTime(), isOrchestration);
+      });
     } catch (error: any) { 
         console.error("SendMessage Error:", error);
         const errorMsg = error.message?.includes('timeout') 
@@ -1140,7 +1179,14 @@ ${memoryContext}`);
         const currentLedger = ledgerRef.current;
         const normalize = (s: string) => s.toLowerCase().trim();
         const targetName = normalize(args.person_name);
-        const matchedKey = Object.keys(currentLedger).find(k => normalize((currentLedger[k] as Person).name) === targetName || normalize(k) === targetName);
+        const matchedKey = Object.keys(currentLedger).find(k => {
+            const p = currentLedger[k] as Person;
+            return normalize(p.name) === targetName
+                || normalize(k) === targetName
+                || normalize(p.relation) === targetName
+                || normalize(p.relation).includes(targetName)
+                || targetName.includes(normalize(p.name));
+        });
 
         // Use the current viewing date for last_contact, not system time
         const contactDate = toDateString(currentDate);
@@ -1163,6 +1209,184 @@ ${memoryContext}`);
             setLedger(prev => ({ ...prev, [matchedKey]: { ...(prev[matchedKey] as Person), notes: args.notes_update, status: args.status_level, last_contact: contactDate } }));
             return `Updated ${args.person_name}'s ledger.`;
         }
+    },
+    logCheckin: async (args: LogCheckinArgs) => {
+        const currentLedger = ledgerRef.current;
+        const normalize = (s: string) => s.toLowerCase().trim();
+        const targetName = normalize(args.person_name);
+        const matchedKey = Object.keys(currentLedger).find(k => {
+            const p = currentLedger[k] as Person;
+            return normalize(p.name) === targetName
+                || normalize(k) === targetName
+                || normalize(p.relation) === targetName
+                || normalize(p.relation).includes(targetName)
+                || targetName.includes(normalize(p.name));
+        });
+
+        // Use date_override if provided (e.g. retroactive check-in via task checkmark),
+        // otherwise fall back to the current viewing date (respects temporal mode).
+        const contactDate = args.date_override ?? toDateString(currentDate);
+
+        if (matchedKey) {
+            const existing = currentLedger[matchedKey] as Person;
+            const newStatus = calculateRelationshipStatus(existing.priority, new Date(contactDate));
+            const updatedNotes = args.notes
+                ? `${existing.notes ? existing.notes + '\n' : ''}[${contactDate}] ${args.notes}`.trim()
+                : existing.notes;
+            setLedger(prev => ({
+                ...prev,
+                [matchedKey]: { ...existing, last_contact: contactDate, status: newStatus, notes: updatedNotes }
+            }));
+            return `Logged check-in with ${existing.name}. Status is now ${newStatus}.`;
+        } else {
+            const newPerson: Person = {
+                name: args.person_name,
+                relation: 'New Contact',
+                category: 'Network',
+                priority: 3,
+                notes: args.notes ? `[${contactDate}] ${args.notes}` : '',
+                status: 'Stable', // Just contacted — freshly stable
+                last_contact: contactDate,
+                image: `https://ui-avatars.com/api/?name=${args.person_name}&background=random`
+            };
+            if (args.confirmed) {
+                await handleAddPerson(newPerson);
+                return `Added ${args.person_name} to the Kinship Ledger and logged today's check-in.`;
+            } else {
+                pendingContactRef.current.push(newPerson);
+                return `${args.person_name} isn't in your Kinship Ledger yet. Proposal card shown — confirm to add them.`;
+            }
+        }
+    },
+    completeTask: async (args: { task_title: string }) => {
+        const allTasks = [...inventoryRef.current.fixed, ...inventoryRef.current.flexible];
+        const normalize = (s: string) => s.toLowerCase().trim();
+        const normalizeContacts = (lc: string | string[] | undefined): string[] =>
+            !lc ? [] : Array.isArray(lc) ? lc : [lc];
+        const searchTitle = normalize(args.task_title);
+        const dateStr = toDateString(currentDate);
+
+        // Prefer task on the currently viewed date; fall back to any date
+        const matchedTask =
+            allTasks.find(t => t.date === dateStr && (
+                normalize(t.title) === searchTitle ||
+                normalize(t.title).includes(searchTitle) ||
+                searchTitle.includes(normalize(t.title))
+            )) ??
+            allTasks.find(t =>
+                normalize(t.title) === searchTitle ||
+                normalize(t.title).includes(searchTitle) ||
+                searchTitle.includes(normalize(t.title))
+            );
+
+        if (!matchedTask) {
+            // Secondary fallback: AI may have passed a social phrase like "met with Alex"
+            // instead of the task title. Extract any ledger contact names from the search
+            // string and find a task for them (all matching contacts).
+            const currentLedgerFB = ledgerRef.current;
+            const normFB = (s: string) => s.toLowerCase().trim();
+            const matchedContactKeys = Object.keys(currentLedgerFB).filter(k => {
+                const p = currentLedgerFB[k] as Person;
+                return searchTitle.includes(normFB(p.name)) || searchTitle.includes(normFB(k));
+            });
+            if (matchedContactKeys.length > 0) {
+                // Try to find a task for any of the matched contacts
+                const firstPerson = currentLedgerFB[matchedContactKeys[0]] as Person;
+                const personLower = normFB(firstPerson.name);
+                const taskForPerson =
+                    allTasks.find(t => t.date === dateStr && normalize(t.title).includes(personLower)) ??
+                    allTasks.find(t => normalize(t.title).includes(personLower));
+                if (taskForPerson) {
+                    handleUpdateTask({ ...taskForPerson, completed: true });
+                    const checkinDate = taskForPerson.date ?? dateStr;
+                    const names: string[] = [];
+                    setLedger(prev => {
+                        const next = { ...prev };
+                        for (const key of matchedContactKeys) {
+                            const person = prev[key] as Person;
+                            const newStatus = calculateRelationshipStatus(person.priority, new Date(checkinDate));
+                            const noteEntry = `[${checkinDate}] Checked in via task: "${taskForPerson.title}"`;
+                            next[key] = { ...person, last_contact: checkinDate, status: newStatus, notes: person.notes ? `${person.notes}\n${noteEntry}` : noteEntry };
+                            names.push(`${person.name} (${newStatus})`);
+                        }
+                        return next;
+                    });
+                    return `Marked "${taskForPerson.title}" as complete. Check-ins logged for: ${names.join(', ')}.`;
+                } else {
+                    const names: string[] = [];
+                    setLedger(prev => {
+                        const next = { ...prev };
+                        for (const key of matchedContactKeys) {
+                            const person = prev[key] as Person;
+                            const newStatus = calculateRelationshipStatus(person.priority, new Date(dateStr));
+                            const noteEntry = `[${dateStr}] Checked in (from: "${args.task_title}")`;
+                            next[key] = { ...person, last_contact: dateStr, status: newStatus, notes: person.notes ? `${person.notes}\n${noteEntry}` : noteEntry };
+                            names.push(`${person.name} (${newStatus})`);
+                        }
+                        return next;
+                    });
+                    return `No task found for "${args.task_title}", but logged check-ins for: ${names.join(', ')}.`;
+                }
+            }
+            const similar = allTasks
+                .filter(t => normalize(t.title).includes(searchTitle.slice(0, 5)))
+                .map(t => `"${t.title}"`).join(', ');
+            return `No task matching "${args.task_title}" found.${similar ? ` Did you mean: ${similar}?` : ' Check the task title in your inventory.'}`;
+        }
+
+        // Mark the task as completed
+        handleUpdateTask({ ...matchedTask, completed: true });
+
+        const currentLedger = ledgerRef.current;
+        const contactNormalize = (s: string) => s.toLowerCase().trim();
+        const checkinDate = matchedTask.date ?? dateStr;
+
+        // Collect all linked contact keys: start from explicit linkedContact array,
+        // then fall back to title scanning for any additional / missing contacts.
+        const explicitContacts = normalizeContacts(matchedTask.linkedContact);
+        let linkedKeys: string[] = [];
+
+        if (explicitContacts.length > 0) {
+            for (const contact of explicitContacts) {
+                const target = contactNormalize(contact);
+                const key = Object.keys(currentLedger).find(k => {
+                    const p = currentLedger[k] as Person;
+                    return contactNormalize(p.name) === target
+                        || contactNormalize(k) === target
+                        || contactNormalize(p.relation) === target;
+                });
+                if (key && !linkedKeys.includes(key)) linkedKeys.push(key);
+            }
+        }
+
+        if (linkedKeys.length === 0) {
+            // Fallback: scan task title for ALL ledger contacts whose name appears
+            const titleLower = contactNormalize(matchedTask.title);
+            linkedKeys = Object.keys(currentLedger).filter(k => {
+                const p = currentLedger[k] as Person;
+                return titleLower.includes(contactNormalize(p.name))
+                    || titleLower.includes(contactNormalize(k));
+            });
+        }
+
+        let linkedMsg = '';
+        if (linkedKeys.length > 0) {
+            const checkedInNames: string[] = [];
+            setLedger(prev => {
+                const next = { ...prev };
+                for (const key of linkedKeys) {
+                    const existing = prev[key] as Person;
+                    const newStatus = calculateRelationshipStatus(existing.priority, new Date(checkinDate));
+                    const noteEntry = `[${checkinDate}] Checked in via task: "${matchedTask.title}"`;
+                    next[key] = { ...existing, last_contact: checkinDate, status: newStatus, notes: existing.notes ? `${existing.notes}\n${noteEntry}` : noteEntry };
+                    checkedInNames.push(`${existing.name} (${newStatus})`);
+                }
+                return next;
+            });
+            linkedMsg = ` Check-ins logged for: ${checkedInNames.join(', ')}.`;
+        }
+
+        return `Marked "${matchedTask.title}" as complete.${linkedMsg}`;
     },
     addTask: async (task: Omit<Task, 'id'>) => {
         console.log('addTask called with:', JSON.stringify(task, null, 2));
@@ -1187,7 +1411,9 @@ ${memoryContext}`);
         const newTask: Task = { 
             ...task, 
             id: generateUniqueTaskId(existingIds), 
-            date: taskDate
+            date: taskDate,
+            linkedContact: task.linkedContact,
+            completed: task.completed ?? false,
         };
         
         console.log('Adding task:', newTask.title, 'to date:', taskDate, 'current view:', toDateString(currentDate));
@@ -1340,6 +1566,16 @@ ${memoryContext}`);
 
   useEffect(() => {
     const dateKey = toDateString(currentDate);
+
+    // MUST be first: prevents briefing from racing with tutorial intro message.
+    // justCompletedTutorialRef is set synchronously in handleTutorialComplete before
+    // setShowTutorial(false) triggers this effect, so checking it here is safe.
+    if (justCompletedTutorialRef.current) {
+        justCompletedTutorialRef.current = false;
+        initializedDateRef.current = dateKey;
+        return;
+    }
+
     if (initializedDateRef.current === dateKey) return;
     
     // Cancel background orchestration when date changes
@@ -1349,17 +1585,8 @@ ${memoryContext}`);
     }
     tasksModifiedCountRef.current = 0; // Reset counter for new date
     
-    // Don't auto-brief if tutorial is showing or if we already have messages
+    // Don't auto-brief if tutorial is showing
     if (showTutorial) return;
-    
-    // Safety check: if we JUST finished the tutorial, we likely triggered an intro message.
-    // We should skip the daily briefing in this specific race condition.
-    if (justCompletedTutorialRef.current) {
-        // Reset the ref so next page load works fine
-        justCompletedTutorialRef.current = false;
-        initializedDateRef.current = dateKey; // Mark as "handled" so it doesn't try again
-        return;
-    }
 
     if (allMessages[dateKey] && allMessages[dateKey].length > 0) {
         initializedDateRef.current = dateKey;
@@ -1386,6 +1613,13 @@ ${memoryContext}`);
       ? `ACTIVE since ${new Date(activeOrchestration.approvedAt).toLocaleString()} - Day already orchestrated`
       : 'NONE - Day not orchestrated';
     
+    // Build contact roster so LLM uses exact stored names in tool calls
+    const rosterLedger = ledgerRef.current;
+    const rosterKeys = Object.keys(rosterLedger);
+    const ledgerRosterContext = rosterKeys.length > 0
+      ? `\n\n== KINSHIP LEDGER ROSTER ==\n(Use the EXACT Name below when calling log_checkin or update_relationship_status — do NOT paraphrase or substitute relation words)\n${rosterKeys.map(k => { const p = rosterLedger[k] as Person; return `- ${p.name} (${p.relation}) [${p.category}]`; }).join('\n')}`
+      : '';
+
     geminiService.startNewSession(`
 Session Context:
 Target Date: ${currentDate.toLocaleDateString()} (Format for add_task: ${toDateString(currentDate)})
@@ -1400,7 +1634,7 @@ IMPORTANT - When user says "this day", "today", "tonight":
 Current Session Time: ${getModeTime()}
 User Mode: ${mode}
 User Timezone: ${timezone}
-${memoryContext}`);
+${memoryContext}${ledgerRosterContext}`);
 
     const startBriefing = async () => {
       const timestamp = new Date().toISOString();
@@ -1422,10 +1656,47 @@ ${memoryContext}`);
         } else {
           temporalContext = 'ACTIVE MODE: Today is';
         }
-        
-        const briefingPrompt = mode === 'demo' 
-            ? `${temporalContext} ${currentDate.toLocaleDateString()}. IMPORTANT: First call get_relationship_status and get_life_context to retrieve current data, then provide your briefing. Compare with ${yesterdayStr}. Explicitly mention that you are assuming the context of 9:00 AM on this specific date for the simulation.`
-            : `${temporalContext} ${currentDate.toLocaleDateString()}. IMPORTANT: First call get_relationship_status and get_life_context to retrieve current data, then provide your briefing. Compare with ${yesterdayStr}.`;
+
+        // Compute at-risk contacts (not Stable) to surface in briefing
+        const currentLedger = ledgerRef.current;
+        const ledgerKeys = Object.keys(currentLedger);
+        const atRiskContacts = ledgerKeys
+          .map(k => currentLedger[k] as Person)
+          .filter(p => p.status !== 'Stable')
+          .sort((a, b) => {
+            const order = { Overdue: 0, Critical: 1, 'Needs Attention': 2 };
+            return (order[a.status as keyof typeof order] ?? 3) - (order[b.status as keyof typeof order] ?? 3);
+          });
+        const hasLedger = ledgerKeys.length > 0;
+        const atRiskList = atRiskContacts.map(p => `${p.name} (${p.status}, priority ${p.priority})`).join(', ');
+
+        // For reflection: surface any tasks that could represent relationship contact
+        const allTasks = [...inventoryRef.current.fixed, ...inventoryRef.current.flexible]
+          .filter(t => t.date === toDateString(currentDate) && (t.category === 'Family' || t.linkedContact));
+        const contactTaskTitles = allTasks.map(t => { const lc = t.linkedContact; const contacts = !lc ? '' : Array.isArray(lc) ? lc.join(', ') : lc; return `"${t.title}"${contacts ? ` [linked: ${contacts}]` : ''}`; }).join(', ');
+
+        let briefingPrompt: string;
+        if (mode === 'demo') {
+          briefingPrompt = `${temporalContext} ${currentDate.toLocaleDateString()}. IMPORTANT: First call get_relationship_status and get_life_context to retrieve current data, then provide your briefing. Compare with ${yesterdayStr}. Explicitly mention that you are assuming the context of 9:00 AM on this specific date for the simulation.`;
+        } else if (viewDate < today) {
+          // REFLECTION MODE
+          briefingPrompt = `${temporalContext} ${currentDate.toLocaleDateString()}. IMPORTANT: First call get_relationship_status and get_life_context to retrieve current data, then provide your briefing. Compare with ${yesterdayStr}.`
+            + (contactTaskTitles
+              ? ` This day had the following Family/contact tasks: ${contactTaskTitles}. After covering the day's highlights, ask ONE consolidated question about whether any of these tasks involved checking in with someone — if yes, use log_checkin with date_override="${toDateString(currentDate)}" to stamp the past date.`
+              : hasLedger
+              ? ` After covering the day's highlights, ask ONE consolidated question: did you connect with anyone in particular that day worth logging in the Kinship Ledger? If yes, call log_checkin with date_override="${toDateString(currentDate)}".`
+              : '');
+        } else if (viewDate > today) {
+          // PLANNING MODE
+          briefingPrompt = `${temporalContext} ${currentDate.toLocaleDateString()}. IMPORTANT: First call get_relationship_status and get_life_context to retrieve current data, then provide your briefing. Compare with ${yesterdayStr}.`
+            + (atRiskList ? ` Note that these contacts are currently not Stable: ${atRiskList}. Factor relationship check-ins into the plan where feasible.` : '');
+        } else {
+          // ACTIVE MODE (today)
+          briefingPrompt = `${temporalContext} ${currentDate.toLocaleDateString()}. IMPORTANT: First call get_relationship_status and get_life_context to retrieve current data, then provide your briefing. Compare with ${yesterdayStr}.`
+            + (atRiskList
+              ? ` The following contacts need attention: ${atRiskList}. After covering the schedule, ask ONE consolidated question: "Is there anyone from that list you could reach out to today or within the next 48 hours?" Offer to add a check-in task if they confirm.`
+              : '');
+        }
 
         await geminiService.sendMessageStream(briefingPrompt, null, executors, (text, thought) => {
             updateCurrentDayMessages(prev => {
@@ -1454,6 +1725,28 @@ ${memoryContext}`);
     // Invalidate approved orchestration since task has been modified
     if (task.date) {
       invalidateApprovedOrchestration(task.date);
+    }
+  };
+
+  /**
+   * handleCompleteTask: Toggle the completed state of a task.
+   * If completing a task that has a linkedContact, auto-log a check-in
+   * for that contact using the task's date (not today) so it stamps correctly
+   * even when reviewing past dates.
+   */
+  const handleCompleteTask = async (task: Task) => {
+    const nowCompleted = !task.completed;
+    handleUpdateTask({ ...task, completed: nowCompleted });
+    if (nowCompleted && task.linkedContact) {
+      const contacts = Array.isArray(task.linkedContact) ? task.linkedContact : [task.linkedContact];
+      for (const contact of contacts) {
+        await executors.logCheckin({
+          person_name: contact,
+          notes: `Checked in via task: "${task.title}"`,
+          confirmed: true,
+          date_override: task.date,
+        });
+      }
     }
   };
   
@@ -1563,6 +1856,19 @@ ${memoryContext}`);
       // Save current state for potential rollback
       const previousInventory = inventory;
       
+      // Build id → linkedContact and title → linkedContact lookup maps so relationship
+      // links survive the round-trip through propose_orchestration.
+      // id-based lookup is tried first (most reliable), title-based is the fallback.
+      const normalize = (s: string) => s.trim().toLowerCase();
+      const linkById  = new Map<string, string | string[]>();
+      const linkByTitle = new Map<string, string | string[]>();
+      [...previousInventory.fixed, ...previousInventory.flexible]
+        .filter(t => t.date === todayStr && t.linkedContact)
+        .forEach(t => {
+          if (t.id) linkById.set(t.id, t.linkedContact!);
+          linkByTitle.set(normalize(t.title), t.linkedContact!);
+        });
+
       try {
         setInventory(prev => {
             const fixed = prev.fixed.filter(t => t.date !== todayStr);
@@ -1577,10 +1883,17 @@ ${memoryContext}`);
                 // Generate new unique ID for each task to prevent duplicate key warnings
                 const newId = generateUniqueTaskId(existingIds);
                 existingIds.add(newId); // Track newly generated IDs to prevent collisions within batch
-                const taskWithDate = { 
+                // Restore linkedContact: prefer what the AI passed through, fall back to
+                // the original task's links (matched by normalized title).
+                // Prefer what the AI explicitly passed, then fall back to id-match, then title-match
+                const restoredLink = t.linkedContact
+                  ?? (t.id ? linkById.get(t.id) : undefined)
+                  ?? linkByTitle.get(normalize(t.title));
+                const taskWithDate: Task = { 
                     ...t, 
                     date: todayStr,
-                    id: newId 
+                    id: newId,
+                    ...(restoredLink !== undefined && { linkedContact: restoredLink }),
                 };
                 if (t.type === 'fixed') newFixed.push(taskWithDate);
                 else newFlexible.push(taskWithDate);
@@ -1687,10 +2000,48 @@ ${memoryContext}`);
   };
 
   const handleTutorialComplete = async () => {
+      justCompletedTutorialRef.current = true; // set BEFORE setShowTutorial triggers useEffect
       setShowTutorial(false);
       localStorage.setItem('life_tutorial_completed', 'true');
-      justCompletedTutorialRef.current = true;
-      
+
+      // Initialize session with full context so the intro message has all tools and state
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      let memoryContext = memories.length > 0 ? `\n\n== LONG-TERM MEMORY BANK ==\n${memories.map(m => `- [${m.date}] (${m.type}): ${m.content}`).join('\n')}` : "";
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const viewDate = new Date(currentDate);
+      viewDate.setHours(0, 0, 0, 0);
+      const temporalMode = viewDate < today ? 'REFLECTION' : viewDate > today ? 'PLANNING' : 'ACTIVE';
+
+      const dateKey = toDateString(currentDate);
+      const activeOrchestration = approvedOrchestrations[dateKey];
+      const orchestrationStatus = activeOrchestration && activeOrchestration.isActive
+        ? `ACTIVE since ${new Date(activeOrchestration.approvedAt).toLocaleString()} - Day already orchestrated`
+        : 'NONE - Day not orchestrated';
+
+      const rosterLedger = ledgerRef.current;
+      const rosterKeys = Object.keys(rosterLedger);
+      const ledgerRosterContext = rosterKeys.length > 0
+        ? `\n\n== KINSHIP LEDGER ROSTER ==\n(Use the EXACT Name below when calling log_checkin or update_relationship_status)\n${rosterKeys.map(k => { const p = rosterLedger[k] as Person; return `- ${p.name} (${p.relation}) [${p.category}]`; }).join('\n')}`
+        : '';
+
+      geminiService.startNewSession(`
+Session Context:
+Target Date: ${currentDate.toLocaleDateString()} (Format for add_task: ${toDateString(currentDate)})
+Current System Date: ${new Date().toLocaleDateString()} (${toDateString(new Date())})
+Temporal Mode: ${temporalMode}
+Approved Orchestration: ${orchestrationStatus}
+
+IMPORTANT - When user says "this day", "today", "tonight":
+→ They mean the TARGET DATE: ${toDateString(currentDate)}
+→ NOT the current system date
+
+Current Session Time: ${getModeTime()}
+User Mode: ${mode}
+User Timezone: ${timezone}
+${memoryContext}${ledgerRosterContext}`);
+
       try {
           await handleSendMessage("[System Event: The user has just completed the onboarding tutorial. Please introduce yourself as their Personal Life Orchestrator. Briefly explain your core capabilities (managing Tasks, Calendar, and Relationships) and ask them what they would like to focus on first.]", null, true);
       } catch (error) {
@@ -1810,11 +2161,11 @@ ${memoryContext}`);
         <div className="h-full flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-8">
           <div className="flex-1 lg:col-span-4 min-h-0 flex flex-col order-2 lg:order-1 overflow-hidden">
              <div className="flex-1 flex flex-col gap-4 min-h-0 lg:overflow-y-auto custom-scrollbar pb-14 lg:pb-0 pr-1">
-                <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col shrink-0">
+                <section data-tutorial="kinship-ledger" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col shrink-0">
                   <KinshipLedgerView ledger={ledger} onUpdatePerson={handleUpdatePerson} onAddPerson={handleAddPerson} onDeletePerson={handleDeletePerson} onAnalyzePhoto={(n,p) => handleSendMessage(`Analyze photo for ${n}`, p)} />
                 </section>
-                <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col shrink-0">
-                  <CareerInventoryView inventory={dailyInventory} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} onAddTask={handleManualAddTask} onOrchestrate={handleOrchestrate} />
+                <section data-tutorial="life-inventory" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col shrink-0">
+                  <CareerInventoryView inventory={dailyInventory} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} onAddTask={handleManualAddTask} onOrchestrate={handleOrchestrate} onCompleteTask={handleCompleteTask} ledger={ledger} />
                 </section>
              </div>
           </div>

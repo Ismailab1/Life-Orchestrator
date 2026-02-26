@@ -287,7 +287,7 @@ const PersonCard: React.FC<{
                         className="w-16 border-slate-200 bg-white rounded px-2 py-1 text-xs border focus:outline-none"
                         placeholder="Priority"
                         min="1"
-                        max="5"
+                        max="10"
                     />
                 </div>
                 <textarea 
@@ -503,9 +503,9 @@ export const KinshipLedgerView: React.FC<Props> = ({ ledger, onUpdatePerson, onA
                           value={newPerson.priority}
                           onChange={(e) => setNewPerson({...newPerson, priority: parseInt(e.target.value) || 3})}
                           className="flex-1 border-slate-200 bg-slate-50 rounded px-2 py-1.5 text-xs border focus:outline-none focus:bg-white"
-                          placeholder="Priority (1-5)"
+                          placeholder="Priority (1-10)"
                           min="1"
-                          max="5"
+                          max="10"
                       />
                   </div>
                   <select 

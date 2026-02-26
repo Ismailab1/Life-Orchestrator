@@ -173,7 +173,8 @@ export const ChatInterface: React.FC<Props> = ({
   const isStorageCritical = storageStats.percentage > 90;
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
+    <div className="flex flex-row h-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 bg-white flex items-center justify-between z-10 shadow-sm">
          <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 shadow-inner">
@@ -186,7 +187,7 @@ export const ChatInterface: React.FC<Props> = ({
                 </p>
             </div>
          </div>
-         <div className="relative" ref={calendarRef}>
+         <div className="relative lg:hidden" ref={calendarRef}>
              <button onClick={() => setShowCalendar(!showCalendar)} className={`p-2 rounded-lg transition-all ${showCalendar ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-600'}`}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
              </button>
@@ -300,7 +301,7 @@ export const ChatInterface: React.FC<Props> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 bg-white border-t border-slate-100">
+      <div data-tutorial="chat-input" className="p-4 bg-white border-t border-slate-100">
         {selectedMedia && (
             <div className="relative inline-block mb-3">
                 {renderMediaPreview(selectedMedia, true)}
@@ -341,6 +342,11 @@ export const ChatInterface: React.FC<Props> = ({
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
           </button>
         </form>
+      </div>
+      </div>
+      {/* Persistent calendar sidebar — visible on lg+ screens */}
+      <div data-tutorial="calendar-sidebar" className="hidden lg:flex flex-col w-72 border-l border-slate-100 bg-white flex-shrink-0 overflow-hidden">
+        <CalendarPopover embedded selectedDate={currentDate} tasks={allTasks} onSelectDate={onSelectDate} />
       </div>
     </div>
   );
