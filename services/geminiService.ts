@@ -319,6 +319,31 @@ const logCheckinTool: FunctionDeclaration = {
     }
 };
 
+const updateTaskTool: FunctionDeclaration = {
+    name: 'update_task',
+    description: 'Updates an existing task in-place by title. Use this to modify properties of a task (e.g. adding linkedContact, changing time, duration, title, or category) WITHOUT deleting and re-creating it. Prefer this over delete_task + add_task when changing an existing task. Only provided fields are updated; omitted fields remain unchanged.',
+    parameters: {
+        type: SchemaType.OBJECT,
+        properties: {
+            task_title: { type: SchemaType.STRING, description: 'The current title (or partial match) of the task to update.' },
+            new_title: { type: SchemaType.STRING, description: 'New title for the task. Omit to keep existing.' },
+            time: { type: SchemaType.STRING, description: 'New time (e.g. "17:00"). Omit to keep existing.' },
+            duration: { type: SchemaType.STRING, description: 'New duration (e.g. "2h"). Omit to keep existing.' },
+            priority: { type: SchemaType.STRING, enum: ['high', 'medium', 'low'], format: 'enum' },
+            category: { type: SchemaType.STRING, enum: ['Career', 'Life', 'Health', 'Family'], format: 'enum' },
+            type: { type: SchemaType.STRING, enum: ['fixed', 'flexible'], format: 'enum' },
+            date: { type: SchemaType.STRING, description: 'New date in YYYY-MM-DD format. Omit to keep existing.' },
+            linkedContact: {
+              type: SchemaType.ARRAY,
+              items: { type: SchemaType.STRING },
+              description: 'Updated list of linked contact name/key(s). Replaces existing linkedContact array entirely.'
+            },
+            description: { type: SchemaType.STRING },
+        },
+        required: ['task_title']
+    }
+};
+
 const completeTaskTool: FunctionDeclaration = {
     name: 'complete_task',
     description: 'Marks a task as completed. If the task has a linked contact, automatically logs a check-in for that contact — no need to also call log_checkin separately. Use this whenever the user says they finished, completed, are done with, or have wrapped up a task. Prefer this over log_checkin when the user\'s message is about completing a task (e.g. "I finished the appointment with Grandma" → complete the "Grandma Physical Therapy" task, not just log a check-in).',
@@ -348,6 +373,7 @@ interface ToolExecutors {
   updateRelationshipStatus: (args: UpdateRelationshipArgs) => Promise<string>;
   logCheckin: (args: LogCheckinArgs) => Promise<string>;
   completeTask: (args: { task_title: string }) => Promise<string>;
+  updateTask: (args: { task_title: string; [key: string]: any }) => Promise<string>;
   addTask: (task: Omit<Task, 'id'>) => Promise<string>;
   deleteTask: (title: string) => Promise<string>;
   deleteRelationshipStatus: (name: string) => Promise<string>;
@@ -416,6 +442,7 @@ export class GeminiService {
       updateRelationshipStatusTool,
       logCheckinTool,
       completeTaskTool,
+      updateTaskTool,
       addTaskTool,
       deleteTaskTool,
       deleteRelationshipStatusTool,
@@ -675,6 +702,7 @@ User Timezone: ${timezone}`;
                      else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
                      else if (call.name === 'log_checkin') res = { status: await executors.logCheckin(args) };
                      else if (call.name === 'complete_task') res = { status: await executors.completeTask(args) };
+                     else if (call.name === 'update_task') res = { status: await executors.updateTask(args) };
                      else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
                      else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
                      else if (call.name === 'delete_relationship_status') res = { status: await executors.deleteRelationshipStatus(args.person_name) };
@@ -764,6 +792,7 @@ User Timezone: ${timezone}`;
                         else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
                         else if (call.name === 'log_checkin') res = { status: await executors.logCheckin(args) };
                         else if (call.name === 'complete_task') res = { status: await executors.completeTask(args) };
+                        else if (call.name === 'update_task') res = { status: await executors.updateTask(args) };
                         else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
                         else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
                         else if (call.name === 'delete_relationship_status') res = { status: await executors.deleteRelationshipStatus(args.person_name) };
@@ -873,6 +902,7 @@ User Timezone: ${timezone}`;
                             else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
                             else if (call.name === 'log_checkin') res = { status: await executors.logCheckin(args) };
                             else if (call.name === 'complete_task') res = { status: await executors.completeTask(args) };
+                            else if (call.name === 'update_task') res = { status: await executors.updateTask(args) };
                             else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
                             else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
                             else if (call.name === 'move_tasks') res = { status: await executors.moveTasks(args.task_identifiers, args.target_date) };
@@ -962,6 +992,7 @@ User Timezone: ${timezone}`;
                      else if (call.name === 'update_relationship_status') res = { status: await executors.updateRelationshipStatus(args) };
                      else if (call.name === 'log_checkin') res = { status: await executors.logCheckin(args) };
                      else if (call.name === 'complete_task') res = { status: await executors.completeTask(args) };
+                     else if (call.name === 'update_task') res = { status: await executors.updateTask(args) };
                      else if (call.name === 'add_task') res = { status: await executors.addTask(args) };
                      else if (call.name === 'delete_task') res = { status: await executors.deleteTask(args.title) };
                      else if (call.name === 'delete_relationship_status') res = { status: await executors.deleteRelationshipStatus(args.person_name) };

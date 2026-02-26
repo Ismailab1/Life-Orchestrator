@@ -1258,6 +1258,57 @@ ${memoryContext}${reinitRosterContext}`);
             }
         }
     },
+    updateTask: async (args: { task_title: string; new_title?: string; time?: string; duration?: string; priority?: string; category?: string; type?: string; date?: string; linkedContact?: string[]; description?: string }) => {
+        const allTasks = [...inventoryRef.current.fixed, ...inventoryRef.current.flexible];
+        const normalize = (s: string) => s.toLowerCase().trim();
+        const searchTitle = normalize(args.task_title);
+        const dateStr = toDateString(currentDate);
+
+        // Prefer task on the currently viewed date; fall back to any date
+        const matchedTask =
+            allTasks.find(t => t.date === dateStr && (
+                normalize(t.title) === searchTitle ||
+                normalize(t.title).includes(searchTitle) ||
+                searchTitle.includes(normalize(t.title))
+            )) ??
+            allTasks.find(t =>
+                normalize(t.title) === searchTitle ||
+                normalize(t.title).includes(searchTitle) ||
+                searchTitle.includes(normalize(t.title))
+            );
+
+        if (!matchedTask) {
+            const similar = allTasks
+                .filter(t => normalize(t.title).includes(searchTitle.slice(0, 5)))
+                .map(t => `"${t.title}"`).join(', ');
+            return `No task matching "${args.task_title}" found.${similar ? ` Did you mean: ${similar}?` : ' Check the task title in your inventory.'}`;
+        }
+
+        // Build updated task, only overriding fields that were provided
+        const updatedTask: Task = { ...matchedTask };
+        if (args.new_title !== undefined) updatedTask.title = args.new_title;
+        if (args.time !== undefined) updatedTask.time = args.time;
+        if (args.duration !== undefined) updatedTask.duration = args.duration;
+        if (args.priority !== undefined) updatedTask.priority = args.priority as Task['priority'];
+        if (args.category !== undefined) updatedTask.category = args.category as Task['category'];
+        if (args.type !== undefined) updatedTask.type = args.type as Task['type'];
+        if (args.date !== undefined) updatedTask.date = args.date;
+        if (args.linkedContact !== undefined) updatedTask.linkedContact = args.linkedContact;
+        if (args.description !== undefined) updatedTask.description = args.description;
+
+        handleUpdateTask(updatedTask);
+
+        const changes: string[] = [];
+        if (args.new_title) changes.push(`title → "${args.new_title}"`);
+        if (args.time) changes.push(`time → ${args.time}`);
+        if (args.duration) changes.push(`duration → ${args.duration}`);
+        if (args.linkedContact) changes.push(`linkedContact → [${args.linkedContact.join(', ')}]`);
+        if (args.priority) changes.push(`priority → ${args.priority}`);
+        if (args.category) changes.push(`category → ${args.category}`);
+        if (args.date) changes.push(`date → ${args.date}`);
+
+        return `✅ Updated "${matchedTask.title}"${changes.length > 0 ? ': ' + changes.join(', ') : ''}.`;
+    },
     completeTask: async (args: { task_title: string }) => {
         const allTasks = [...inventoryRef.current.fixed, ...inventoryRef.current.flexible];
         const normalize = (s: string) => s.toLowerCase().trim();
@@ -1743,23 +1794,44 @@ ${memoryContext}${ledgerRosterContext}`);
 
   /**
    * handleCompleteTask: Toggle the completed state of a task.
-   * If completing a task that has a linkedContact, auto-log a check-in
-   * for that contact using the task's date (not today) so it stamps correctly
-   * even when reviewing past dates.
+   * When completing, auto-log check-ins and stamp the completion date
+   * for correct last-contact updates.
    */
   const handleCompleteTask = async (task: Task) => {
     const nowCompleted = !task.completed;
     handleUpdateTask({ ...task, completed: nowCompleted });
-    if (nowCompleted && task.linkedContact) {
+
+    if (!nowCompleted) return;
+
+    const completionDate = toDateString(currentDate);
+    const normalize = (s: string) => s.toLowerCase().trim();
+    const currentLedger = ledgerRef.current;
+    const contactSet = new Set<string>();
+
+    if (task.linkedContact) {
       const contacts = Array.isArray(task.linkedContact) ? task.linkedContact : [task.linkedContact];
       for (const contact of contacts) {
-        await executors.logCheckin({
-          person_name: contact,
-          notes: `Checked in via task: "${task.title}"`,
-          confirmed: true,
-          date_override: task.date,
-        });
+        contactSet.add(contact);
       }
+    }
+
+    if (contactSet.size === 0) {
+      const titleLower = normalize(task.title);
+      for (const key of Object.keys(currentLedger)) {
+        const person = currentLedger[key] as Person;
+        if (titleLower.includes(normalize(person.name)) || titleLower.includes(normalize(key))) {
+          contactSet.add(key);
+        }
+      }
+    }
+
+    for (const contact of contactSet) {
+      await executors.logCheckin({
+        person_name: contact,
+        notes: `Checked in via task: "${task.title}"`,
+        confirmed: true,
+        date_override: completionDate,
+      });
     }
   };
   
@@ -1793,6 +1865,11 @@ ${memoryContext}${ledgerRosterContext}`);
   };
   
   const handleOrchestrate = () => {
+    // Guard: prevent duplicate orchestration requests while one is already in-flight
+    if (isStreaming || isLoading) {
+      console.warn('⏭️ Orchestration request blocked — already streaming/loading');
+      return;
+    }
     handleSendMessage('Orchestrate my day. Analyze my current schedule and propose a complete daily reorganization.', null, false, true);
   };
   
@@ -1990,10 +2067,40 @@ ${memoryContext}${ledgerRosterContext}`);
       })
     );
     
+    // Cross-reference imported tasks with ALL ledger contacts (including just-imported ones)
+    // to auto-set linkedContact for tasks whose attendees are in the Kinship Ledger.
+    const currentLedger = ledgerRef.current;
+    const normalize = (s: string) => s.toLowerCase().trim();
+    const linkedTasks = tasks.map(task => {
+      if (task.attendees && task.attendees.length > 0) {
+        const linkedNames: string[] = [];
+        for (const attendee of task.attendees) {
+          const attendeeName = attendee.displayName || (attendee.email ? attendee.email.split('@')[0] : '');
+          if (!attendeeName) continue;
+          const attendeeLower = normalize(attendeeName);
+          // Match against existing ledger entries
+          const matchedKey = Object.keys(currentLedger).find(k => {
+            const p = currentLedger[k] as Person;
+            return normalize(p.name) === attendeeLower
+              || normalize(k) === attendeeLower
+              || attendeeLower.includes(normalize(p.name))
+              || normalize(p.name).includes(attendeeLower);
+          });
+          if (matchedKey && !linkedNames.includes(matchedKey)) {
+            linkedNames.push(matchedKey);
+          }
+        }
+        if (linkedNames.length > 0) {
+          return { ...task, linkedContact: linkedNames };
+        }
+      }
+      return task;
+    });
+    
     setInventory(prev => {
         const existingGcalIds = new Set(prev.fixed.map(t => t.gcal_id).filter(id => !!id));
         const existingRecurringIds = new Set(prev.fixed.map(t => t.gcal_recurring_id).filter(id => !!id));
-        const filteredNew = tasks.filter(t => !existingGcalIds.has(t.gcal_id) && !(t.gcal_recurring_id && existingRecurringIds.has(t.gcal_recurring_id)));
+        const filteredNew = linkedTasks.filter(t => !existingGcalIds.has(t.gcal_id) && !(t.gcal_recurring_id && existingRecurringIds.has(t.gcal_recurring_id)));
         return { ...prev, fixed: [...prev.fixed, ...filteredNew] };
     });
     setShowImportModal(false); setShowSyncInfo({ type: 'import', visible: true });
@@ -2002,7 +2109,7 @@ ${memoryContext}${ledgerRosterContext}`);
     if (tasks.length > 0 || importedPeopleCount > 0) {
       let message = '';
       if (tasks.length > 0 && importedPeopleCount > 0) {
-        message = `I've just imported ${tasks.length} specific event${tasks.length === 1 ? '' : 's'} from my Google Calendar and added ${importedPeopleCount} new ${importedPeopleCount === 1 ? 'person' : 'people'} to my Kinship Ledger from the event attendees. Please analyze these anchors and connections, and re-orchestrate if there are better ways to flow my days while maintaining these relationships.`;
+        message = `I've just imported ${tasks.length} specific event${tasks.length === 1 ? '' : 's'} from my Google Calendar and added ${importedPeopleCount} new ${importedPeopleCount === 1 ? 'person' : 'people'} to my Kinship Ledger from the event attendees. The imported contacts have been automatically linked to their calendar events. Please analyze these anchors and connections, and re-orchestrate if there are better ways to flow my days while maintaining these relationships.`;
       } else if (tasks.length > 0) {
         message = `I've just imported ${tasks.length} specific event${tasks.length === 1 ? '' : 's'} from my Google Calendar. Please analyze these anchors and re-orchestrate if there are better ways to flow my days.`;
       } else if (importedPeopleCount > 0) {
