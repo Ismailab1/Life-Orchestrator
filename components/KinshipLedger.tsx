@@ -42,6 +42,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { RelationshipLedger, Person } from '../types';
+import { compressImage } from '../services/imageService'; // Used only for profile avatar compression (does not go through handleSendMessage)
 
 interface Props {
   ledger: RelationshipLedger;
@@ -177,37 +178,46 @@ const PersonCard: React.FC<{
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onAnalyzePhoto(person.name, reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Invalid file type. Please upload an image.');
+      return;
     }
-    // Reset input
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (reader.result && typeof reader.result === 'string') {
+        // No compression here — handleSendMessage in App.tsx compresses all media
+        // before storage and AI send (800×800 @ 0.7). Compressing here would double-compress.
+        onAnalyzePhoto(person.name, reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
     if (e.target) e.target.value = '';
   };
 
   const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Image Validation
-      if (!file.type.startsWith('image/')) {
-        alert("Invalid file type. Please upload an image.");
-        return;
-      }
-      
-      if (file.size > 5 * 1024 * 1024) { // 5MB Limit
-        alert("Image size too large. Please upload an image smaller than 5MB.");
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, image: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Invalid file type. Please upload an image.');
+      return;
     }
+    if (file.size > 20 * 1024 * 1024) { // 20MB limit — compression handles the rest
+      alert('Image is too large. Please upload an image smaller than 20 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      if (reader.result && typeof reader.result === 'string') {
+        try {
+          const compressed = await compressImage(reader.result, 400, 400, 0.8);
+          setFormData(prev => ({ ...prev, image: compressed }));
+        } catch {
+          setFormData(prev => ({ ...prev, image: reader.result as string }));
+        }
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   if (isEditing) {

@@ -128,25 +128,35 @@ export const ChatInterface: React.FC<Props> = ({
 
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result && typeof reader.result === 'string') {
-          setSelectedMedia(reader.result);
-        }
-      };
-      reader.onerror = () => {
-        console.error('Failed to read file:', reader.error);
-        setSelectedMedia(null);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      alert('Image is too large (max 20 MB). Please choose a smaller file.');
+      e.target.value = '';
+      return;
     }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (reader.result && typeof reader.result === 'string') {
+        // No compression here — handleSendMessage in App.tsx compresses all media
+        // before storage and AI send (800×800 @ 0.7). Compressing here would double-compress.
+        setSelectedMedia(reader.result);
+      }
+    };
+    reader.onerror = () => {
+      console.error('Failed to read file:', reader.error);
+      setSelectedMedia(null);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if ((!input.trim() && !selectedMedia) || isStreaming) return;
-    onSendMessage(input, selectedMedia);
+    const effectiveText = (selectedMedia && !input.trim())
+      ? '[Image attached] Please analyze this image in the context of my life orchestration. Extract any tasks, events, schedules, deadlines, or contact information you can see, then take the appropriate actions (add_task, update_relationship_status, log_checkin, etc.). Summarize what you found and what actions you took.'
+      : input;
+    onSendMessage(effectiveText, selectedMedia);
     setInput('');
     setSelectedMedia(null);
   };
@@ -326,14 +336,14 @@ export const ChatInterface: React.FC<Props> = ({
              </span>
         </div>
         <form onSubmit={handleSubmit} className="flex items-end gap-3">
-          <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Attach context">
+          <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors" title="Attach image — schedule screenshots, business cards, to-do lists, or contact photos">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
           </button>
           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleMediaUpload} />
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isStreaming ? "AI is responding..." : isStorageCritical ? "STORAGE FULL - DELETE OLD CHATS" : "Type your goals..."}
+            placeholder={isStreaming ? "AI is responding..." : isStorageCritical ? "STORAGE FULL - DELETE OLD CHATS" : selectedMedia ? "Add a note, or press Send to let the AI analyze the image..." : "Type your goals..."}
             disabled={isStorageCritical || isStreaming}
             className={`flex-1 max-h-32 min-h-[48px] p-3 border rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:outline-none resize-none text-sm transition-colors ${isStorageCritical ? 'bg-red-50 border-red-200' : isStreaming ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-200'}`}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); } }}

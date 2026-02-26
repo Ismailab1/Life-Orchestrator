@@ -593,6 +593,13 @@ User Timezone: ${timezone}`;
     let accumulatedThought = "";
     let proposedOrchestration = false; // Track if propose_orchestration was successfully called
     const executedFingerprints = new Set<string>(); // Dedup guard: prevent identical tool calls from running twice in one turn
+    // Produce a stable fingerprint regardless of key insertion order (Gemini can return identical
+    // args with different key orderings across stream rounds, defeating naive JSON.stringify dedup)
+    const stableFingerprint = (name: string, args: any): string => {
+        if (!args || typeof args !== 'object') return `${name}:${JSON.stringify(args ?? {})}`;
+        const sorted = Object.keys(args).sort().reduce((acc: any, k) => { acc[k] = args[k]; return acc; }, {});
+        return `${name}:${JSON.stringify(sorted)}`;
+    };
 
     try {
         const result = await this.chat!.sendMessageStream(parts);
@@ -645,7 +652,7 @@ User Timezone: ${timezone}`;
                  let res: any = {};
                  try {
                      const args = call.args as any;
-                     const _fp = `${call.name}:${JSON.stringify(args ?? {})}`;
+                     const _fp = stableFingerprint(call.name, args);
                      if (executedFingerprints.has(_fp)) {
                          console.log(`⏭️ Skipping duplicate tool call: ${call.name}`);
                          res = { status: 'already_executed_this_turn' };
@@ -734,7 +741,7 @@ User Timezone: ${timezone}`;
                     let res: any = {};
                     try {
                         const args = call.args as any;
-                        const _fp2 = `${call.name}:${JSON.stringify(args ?? {})}`;
+                        const _fp2 = stableFingerprint(call.name, args);
                         if (executedFingerprints.has(_fp2)) {
                             console.log(`⏭️ Skipping duplicate tool call: ${call.name}`);
                             res = { status: 'already_executed_this_turn' };
@@ -854,7 +861,7 @@ User Timezone: ${timezone}`;
                         let res: any = {};
                         try {
                             const args = call.args as any;
-                            const _fpN = `${call.name}:${JSON.stringify(args ?? {})}`;
+                            const _fpN = stableFingerprint(call.name, args);
                             if (executedFingerprints.has(_fpN)) {
                                 console.log(`⏭️ Skipping duplicate tool call: ${call.name}`);
                                 res = { status: 'already_executed_this_turn' };

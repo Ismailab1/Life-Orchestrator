@@ -297,7 +297,7 @@ interface AppProps {
  * with photos. 5 images/day balances utility with sustainability.
  * The compression service reduces each image to ~100-200KB.
  */
-const MAX_IMAGES_PER_DAY = 5;
+const MAX_IMAGES_PER_DAY = 15;
 const toDateString = (date: Date) => date.toLocaleDateString('en-CA'); // YYYY-MM-DD format
 
 /**
@@ -1405,6 +1405,19 @@ ${memoryContext}${reinitRosterContext}`);
         
         const taskDate = isRecurring ? undefined : (task.date || toDateString(currentDate));
         
+        // Idempotency guard: prevent duplicate tasks from double tool-calls within one AI turn
+        const normalizeTitle = (s: string) => s.toLowerCase().trim();
+        const allExisting = [...inventoryRef.current.fixed, ...inventoryRef.current.flexible];
+        const duplicate = allExisting.find(t =>
+            normalizeTitle(t.title) === normalizeTitle(task.title) &&
+            t.date === taskDate &&
+            (t.time ?? '') === (task.time ?? '')
+        );
+        if (duplicate) {
+            console.warn(`⏭️ addTask: duplicate detected — "${task.title}" for ${taskDate} already exists. Skipping.`);
+            return `✅ "${task.title}" is already in the schedule for ${taskDate}.`;
+        }
+        
         // Build set of existing IDs to ensure uniqueness
         const existingIds = new Set([...inventoryRef.current.fixed, ...inventoryRef.current.flexible].map(t => t.id));
         
@@ -2162,7 +2175,10 @@ ${memoryContext}`);
           <div className="flex-1 lg:col-span-4 min-h-0 flex flex-col order-2 lg:order-1 overflow-hidden">
              <div className="flex-1 flex flex-col gap-4 min-h-0 lg:overflow-y-auto custom-scrollbar pb-14 lg:pb-0 pr-1">
                 <section data-tutorial="kinship-ledger" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col shrink-0">
-                  <KinshipLedgerView ledger={ledger} onUpdatePerson={handleUpdatePerson} onAddPerson={handleAddPerson} onDeletePerson={handleDeletePerson} onAnalyzePhoto={(n,p) => handleSendMessage(`Analyze photo for ${n}`, p)} />
+                  <KinshipLedgerView ledger={ledger} onUpdatePerson={handleUpdatePerson} onAddPerson={handleAddPerson} onDeletePerson={handleDeletePerson} onAnalyzePhoto={(n, p) => handleSendMessage(
+                    `[Photo uploaded for ${n}] I've attached a photo related to ${n} from my Kinship Ledger. Please analyze it for any useful relationship context — occasion, location, who else is present, emotional tone, or any commitments or plans visible. Then update ${n}'s notes in the Kinship Ledger with what you found, and offer to log a check-in if appropriate.`,
+                    p
+                  )} />
                 </section>
                 <section data-tutorial="life-inventory" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col shrink-0">
                   <CareerInventoryView inventory={dailyInventory} onUpdateTask={handleUpdateTask} onDeleteTask={handleDeleteTask} onAddTask={handleManualAddTask} onOrchestrate={handleOrchestrate} onCompleteTask={handleCompleteTask} ledger={ledger} />
