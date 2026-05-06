@@ -45,7 +45,25 @@ export default defineConfig(({ mode }) => {
         headers: {
             'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
             'Cross-Origin-Embedder-Policy': 'unsafe-none'
-        }
+        },
+        proxy: {
+          // In development, Vite forwards /api/gemini/* to Google's API and
+          // injects the key from .env.local — the key is never bundled into JS.
+          '/api/gemini': {
+            target: 'https://generativelanguage.googleapis.com',
+            changeOrigin: true,
+            rewrite: (path: string) => path.replace(/^\/api\/gemini/, ''),
+            configure: (proxy: any) => {
+              proxy.on('proxyReq', (proxyReq: any) => {
+                const [pathname, qs] = proxyReq.path.split('?');
+                const params = new URLSearchParams(qs || '');
+                params.delete('key');
+                params.set('key', env.GEMINI_API_KEY || '');
+                proxyReq.path = `${pathname}?${params.toString()}`;
+              });
+            },
+          },
+        },
       },
       build: {
         outDir: 'dist',
@@ -60,10 +78,6 @@ export default defineConfig(({ mode }) => {
         }
       },
       plugins: [react()],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),

@@ -13,7 +13,8 @@
     "idb": "^8.0.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.4",
-    "react-markdown": "9.0.1"
+    "react-markdown": "9.0.1",
+    "react-router-dom": "^7.13.1"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",

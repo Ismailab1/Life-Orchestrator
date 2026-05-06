@@ -37,16 +37,11 @@
  */
 
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
-interface Props {
-  onStartDemo: () => void;
-  onStartLive: () => void;
-  onViewPrivacy: () => void;
-  onViewTerms: () => void;
-}
-
-export const LandingPage: React.FC<Props> = ({ onStartDemo, onStartLive, onViewPrivacy, onViewTerms }) => {
+export const LandingPage: React.FC = () => {
   const [agreed, setAgreed] = useState(false);
+  const navigate = useNavigate();
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -104,14 +99,14 @@ export const LandingPage: React.FC<Props> = ({ onStartDemo, onStartLive, onViewP
            </div>
            <div className="flex items-center gap-3">
              <button 
-                onClick={onStartDemo} 
+                onClick={() => navigate('/demo')} 
                 disabled={!agreed}
                 className={`hidden sm:block px-4 py-2 rounded-lg text-sm font-medium text-white transition-all ${agreed ? 'hover:bg-white/5' : 'opacity-50 cursor-not-allowed grayscale'}`}
              >
                 View Demo
              </button>
              <button 
-                onClick={onStartLive} 
+                onClick={() => navigate('/app')} 
                 disabled={!agreed}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-lg ${agreed ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/25' : 'bg-slate-700 text-slate-400 cursor-not-allowed grayscale opacity-50'}`}
              >
@@ -160,21 +155,21 @@ export const LandingPage: React.FC<Props> = ({ onStartDemo, onStartLive, onViewP
                         </div>
                     </div>
                     <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
-                        I agree to the <button onClick={(e) => { e.preventDefault(); onViewTerms(); }} className="text-indigo-400 hover:text-indigo-300 underline underline-offset-4">Terms of Service</button> and <button onClick={(e) => { e.preventDefault(); onViewPrivacy(); }} className="text-indigo-400 hover:text-indigo-300 underline underline-offset-4">Privacy Policy</button>
+                        I agree to the <Link to="/terms" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-4">Terms of Service</Link> and <Link to="/privacy" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-4">Privacy Policy</Link>
                     </span>
                 </label>
             </div>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
                 <button 
-                    onClick={onStartDemo}
+                    onClick={() => navigate('/demo')}
                     disabled={!agreed}
                     className={`w-full sm:w-auto px-8 py-4 rounded-xl font-semibold border transition-all flex items-center justify-center gap-2 ${agreed ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700 shadow-xl' : 'bg-slate-800/50 text-slate-500 border-slate-800 cursor-not-allowed opacity-50'}`}
                 >
                     View Demo
                 </button>
                 <button 
-                    onClick={onStartLive}
+                    onClick={() => navigate('/app')}
                     disabled={!agreed}
                     className={`w-full sm:w-auto px-8 py-4 rounded-xl font-semibold shadow-lg transition-all flex items-center justify-center gap-2 ${agreed ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white shadow-indigo-500/25' : 'bg-slate-800/50 text-slate-500 cursor-not-allowed opacity-50'}`}
                 >

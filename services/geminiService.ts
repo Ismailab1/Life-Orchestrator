@@ -418,11 +418,14 @@ export class GeminiService {
     console.log('[GeminiService] Session reset - will reinitialize on next message');
   }
 
+  // Proxy base URL: all Gemini requests go through our server so the real API key
+  // never reaches the browser bundle. In production the Express server injects the key;
+  // in development Vite's proxy does the same from .env.local.
+  private static readonly PROXY_BASE = `${typeof window !== 'undefined' ? window.location.origin : ''}/api/gemini`;
+
   constructor() {
-    const apiKey = process.env.API_KEY || '';
-    if (!apiKey) console.warn("GeminiService: API Key is missing! Check .env and vite.config.ts.");
-    
-    this.genAI = new GoogleGenerativeAI(apiKey);
+    // 'server-proxy' is a placeholder — the proxy strips it and injects the real key.
+    this.genAI = new GoogleGenerativeAI('server-proxy');
     
     /**
      * Tool Registration
@@ -452,7 +455,10 @@ export class GeminiService {
     
     // Initialize a default model to avoid undefined errors if used before session start,
     // though startNewSession should always be called.
-    this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-pro" }); 
+    this.model = this.genAI.getGenerativeModel(
+      { model: "gemini-2.5-pro" },
+      { baseUrl: GeminiService.PROXY_BASE }
+    );
   }
 
   private detectTemporalMode(context: string): 'reflection' | 'active' | 'planning' {
@@ -551,11 +557,14 @@ User Timezone: ${timezone}`;
     const finalSystemInstruction = SYSTEM_INSTRUCTION + temporalInstruction + "\n\n" + context;
     console.log("Initializing Gemini Session with System Instruction:", finalSystemInstruction);
     
-    this.model = this.genAI.getGenerativeModel({
+    this.model = this.genAI.getGenerativeModel(
+      {
         model: "gemini-2.5-pro",
         systemInstruction: finalSystemInstruction,
         tools: [{ functionDeclarations: this.tools }],
-    });
+      },
+      { baseUrl: GeminiService.PROXY_BASE }
+    );
 
     this.chat = this.model.startChat({});
   }

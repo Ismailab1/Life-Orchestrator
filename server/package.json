@@ -1,0 +1,9 @@
+{
+  "name": "life-orchestrator-server",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "express": "^4.21.2",
+    "http-proxy-middleware": "^3.0.5"
+  }
+}

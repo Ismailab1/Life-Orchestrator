@@ -12,26 +12,24 @@ RUN npm ci
 # Copy the rest of the application code
 COPY . .
 
-# Build the application
+# Build the application (API key is NOT injected here — it lives only in the server env)
 RUN npm run build
 
-# Stage 2: Serve the application with Nginx
-FROM nginx:alpine
+# Stage 2: Production server (Express proxy + static file serving)
+# The GEMINI_API_KEY is supplied at runtime via Cloud Run environment variables.
+FROM node:22-alpine
 
-# Remove default Nginx configuration
-RUN rm /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Copy custom Nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Install only the server's minimal dependencies
+COPY server/package.json ./package.json
+RUN npm install --omit=dev
 
-# Copy built artifacts from the build stage
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy server code and built frontend
+COPY server/index.js ./index.js
+COPY --from=build /app/dist ./dist/
 
-# Ensure correct permissions
-RUN chmod -R 755 /usr/share/nginx/html
-
-# Expose port 8080 (Cloud Run default)
+# Expose Cloud Run's default port
 EXPOSE 8080
 
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "index.js"]

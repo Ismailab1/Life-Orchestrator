@@ -17,36 +17,38 @@
  * This prevents demo data from bleeding into live mode or vice versa.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import App from './App';
 import './index.css';
 import { LandingPage } from './components/LandingPage';
 import { LegalView } from './components/LegalView';
 
 const Root: React.FC = () => {
-  const [view, setView] = useState<'landing' | 'app-demo' | 'app-live' | 'privacy' | 'terms'>('landing');
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/home" element={<LandingPage />} />
+        <Route path="/chat" element={<AppWrapper mode="live" />} />
+        <Route path="/demo" element={<AppWrapper mode="demo" />} />
+        <Route path="/app" element={<AppWrapper mode="live" />} />
+        <Route path="/privacy" element={<LegalView type="privacy" />} />
+        <Route path="/terms" element={<LegalView type="terms" />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
 
-  if (view === 'landing') {
-    return (
-        <LandingPage 
-            onStartDemo={() => setView('app-demo')} 
-            onStartLive={() => setView('app-live')} 
-            onViewPrivacy={() => setView('privacy')}
-            onViewTerms={() => setView('terms')}
-        />
-    );
-  }
-
-  if (view === 'privacy' || view === 'terms') {
-    return <LegalView type={view} onBack={() => setView('landing')} />;
-  }
-
+// Wrapper component to handle navigation and key prop for App re-mounting
+const AppWrapper: React.FC<{ mode: 'demo' | 'live' }> = ({ mode }) => {
+  const navigate = useNavigate();
   return (
     <App 
-        key={view} // Force re-mount when switching modes (CRITICAL for data isolation)
-        mode={view === 'app-demo' ? 'demo' : 'live'} 
-        onBack={() => setView('landing')} 
+      key={mode} // Force re-mount when switching modes (CRITICAL for data isolation)
+      mode={mode}
+      onBack={() => navigate('/')}
     />
   );
 };

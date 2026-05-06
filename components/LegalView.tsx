@@ -1,12 +1,14 @@
 
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   type: 'privacy' | 'terms';
-  onBack: () => void;
 }
 
-export const LegalView: React.FC<Props> = ({ type, onBack }) => {
+export const LegalView: React.FC<Props> = ({ type }) => {
+  const navigate = useNavigate();
+  
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -28,7 +30,7 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
             </p>
           </div>
           <button 
-            onClick={onBack}
+            onClick={() => navigate('/')}
             className="p-2.5 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-all border border-white/10"
             aria-label="Close"
           >
@@ -275,7 +277,7 @@ export const LegalView: React.FC<Props> = ({ type, onBack }) => {
         {/* Sticky Footer */}
         <footer className="p-6 lg:p-8 border-t border-white/5 bg-slate-900/30 flex justify-center shrink-0">
           <button 
-            onClick={onBack}
+            onClick={() => navigate('/')}
             className="px-10 py-3.5 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 border border-white/10"
           >
             Close
