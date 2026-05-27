@@ -379,7 +379,7 @@ The ultimate goal is a **Recursive Summary Engine** that maintains context acros
 - **Deployment**: Google Cloud Run
 
 ## License
-This project is licensed under the **MIT License**. See `/tmp/workspace/Ismailab1/Life-Orchestrator/LICENSE` for the full text.
+This project is licensed under the **MIT License**. See `LICENSE` for the full text.
 
 ## Document Attribution
-All files in `/tmp/workspace/Ismailab1/Life-Orchestrator/docs/project-analysis/` are attributed to **Ismailab1** and include copyright attribution in both Markdown and PDF outputs.
+All files in `docs/project-analysis/` are attributed to **Ismailab1** and include copyright attribution in both Markdown and PDF outputs.
