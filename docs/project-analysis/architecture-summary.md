@@ -1,5 +1,8 @@
 # Life Orchestrator — Architecture Summary
 
+> **Author:** Ismailab1  
+> **Copyright:** © 2026 Ismailab1. All rights reserved.
+>
 > **Purpose:** A concise, interviewer-ready explanation of how Life Orchestrator is structured, why key decisions were made, and what engineering challenges were solved. Use this for system-design discussions, technical screens, and portfolio presentations.
 
 ---
