@@ -3,7 +3,7 @@
 > **Author:** Ismail Abdullah (Ismailab1)  
 > **Copyright:** © 2026 Ismail Abdullah (Ismailab1). All rights reserved.
 >
-> **Purpose:** An honest, specific assessment of what the Life Orchestrator repository can and cannot support on a resume or in a job application. Use this document to avoid overclaiming and to know exactly what evidence you can defend in a technical interview.
+> **Purpose:** An honest, specific assessment of what the Life Orchestrator repository can and cannot support on a resume or in a job application. Use this document to avoid overclaiming and to know exactly what evidence you can defend in written or verbal project discussions.
 
 ---
 
