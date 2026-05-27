@@ -1,5 +1,8 @@
 # Life Orchestrator — Cover Letter Talking Points
 
+> **Author:** Ismail Abdullah (Ismailab1)  
+> **Copyright:** © 2026 Ismail Abdullah (Ismailab1). All rights reserved.
+>
 > **Purpose:** Evidence-backed talking points for cover letters, "Why are you a good fit?" questions, and recruiter screens. Each point is mapped to the project feature that supports it. Match the talking points to the specific JD keywords you are targeting.
 
 ---

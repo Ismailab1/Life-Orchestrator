@@ -377,3 +377,9 @@ The ultimate goal is a **Recursive Summary Engine** that maintains context acros
 - **APIs**: Google Calendar API (GAPI/GSI)
 - **Cloud Platforms**: Google Cloud Platform (GCP)
 - **Deployment**: Google Cloud Run
+
+## License
+This project is licensed under the **MIT License**. See `LICENSE` for the full text.
+
+## Document Attribution
+All files in `docs/project-analysis/` are attributed to **Ismail Abdullah (Ismailab1)** and include copyright attribution in both Markdown and PDF outputs.
