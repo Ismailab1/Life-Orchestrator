@@ -1,7 +1,7 @@
 # Life Orchestrator — Full Stack Report
 
-> **Author:** Ismailab1  
-> **Copyright:** © 2026 Ismailab1. All rights reserved.
+> **Author:** Ismail Abdullah (Ismailab1)  
+> **Copyright:** © 2026 Ismail Abdullah (Ismailab1). All rights reserved.
 >
 > **Purpose:** Authoritative reference of every technology layer in this project. Use this document to answer "what did you build with?" questions in interviews, applications, and portfolio presentations.
 

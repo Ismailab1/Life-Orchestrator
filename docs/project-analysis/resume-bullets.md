@@ -1,7 +1,7 @@
 # Life Orchestrator — Resume Bullets by Role Type
 
-> **Author:** Ismailab1  
-> **Copyright:** © 2026 Ismailab1. All rights reserved.
+> **Author:** Ismail Abdullah (Ismailab1)  
+> **Copyright:** © 2026 Ismail Abdullah (Ismailab1). All rights reserved.
 >
 > **Purpose:** Ready-to-use, truthful resume bullet points drawn directly from verifiable project evidence. Each section is tailored to a specific role type. Select the section(s) that match your target job and mix/match bullets as needed.
 >
