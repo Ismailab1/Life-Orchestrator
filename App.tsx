@@ -31,7 +31,25 @@ import { GoogleCalendarService } from './services/googleCalendarService';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { CalendarImportModal } from './components/CalendarImportModal';
 import { compressImage } from './services/imageService';
-import { storageService } from './services/storageService';
+import {
+  storageService,
+  migrateFromLocalStorage,
+  onStorageDegraded,
+  getInventory,
+  setInventory as persistInventory,
+  getLedger,
+  setLedger as persistLedger,
+  getMemories,
+  setMemories as persistMemories,
+  getMessages,
+  setMessages,
+  getApprovedOrchestrations,
+  setApprovedOrchestrations as persistApprovedOrchestrations,
+  getTutorialCompleted,
+  setTutorialCompleted,
+  getLastActive,
+  setLastActive,
+} from './services/storageService';
 import { StorageManager } from './components/StorageManager';
 import { Toast, useToast } from './components/Toast';
 
@@ -409,9 +427,9 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       messagesByDate: {}
   });  
   const toast = useToast();
-  // Determine initial state based on tutorial completion
-  const isFirstRun = !localStorage.getItem('life_tutorial_completed');
-  
+  // Gates rendering until the async IndexedDB bootstrap (or demo mode's tutorial-flag check) finishes
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
   const [inventory, setInventory] = useState<LifeInventory>(() => {
     // In demo mode, always load demo data and ignore localStorage
     if (mode === 'demo') {
@@ -490,16 +508,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
         };
     }
     
-    // In live mode, load from localStorage or return empty
-    // Apply de-duplication to clean up any legacy duplicate IDs
-    const saved = localStorage.getItem('life_inventory');
-    if (saved) {
-      const parsed = JSON.parse(saved) as LifeInventory;
-      return {
-        fixed: deduplicateTasks(parsed.fixed || []),
-        flexible: deduplicateTasks(parsed.flexible || [])
-      };
-    }
+    // In live mode, start empty - real data loads asynchronously from IndexedDB in the bootstrap effect below
     return EMPTY_INVENTORY;
   });
 
@@ -515,9 +524,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
         return INITIAL_LEDGER;
     }
     
-    // In live mode, load from localStorage or return empty
-    const saved = localStorage.getItem('life_ledger');
-    if (saved) return JSON.parse(saved);
+    // In live mode, start empty - real data loads asynchronously from IndexedDB in the bootstrap effect below
     return EMPTY_LEDGER;
   });
 
@@ -564,8 +571,8 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
           ];
       }
       
-      const saved = localStorage.getItem('life_memories');
-      return saved ? JSON.parse(saved) : [];
+      // In live mode, start empty - real data loads asynchronously from IndexedDB in the bootstrap effect below
+      return [];
   });
 
   /**
@@ -683,18 +690,8 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
           };
       }
       
-                    // In live mode, load from localStorage
-      const saved = localStorage.getItem('life_messages');
-      let history: ChatHistory = saved ? JSON.parse(saved) : {};
-      
-      // If live mode, check inactivity - logic placeholder for now
-      if (mode === 'live') {
-          const now = Date.now();
-          const lastActive = parseInt(localStorage.getItem('life_last_active') || '0');
-          // e.g. if (now - lastActive > 6 * 3600 * 1000) ...
-      }
-      
-      return history;
+      // In live mode, start empty - real data loads asynchronously from IndexedDB in the bootstrap effect below
+      return {};
   });
 
   /**
@@ -710,10 +707,59 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
    * Cleanup: Old orchestrations (>7 days) are automatically removed to save storage
    */
   const [approvedOrchestrations, setApprovedOrchestrations] = useState<Record<string, ApprovedOrchestration>>(() => {
-      if (mode === 'demo') return {};
-      const saved = localStorage.getItem('approved_orchestrations');
-      return saved ? JSON.parse(saved) : {};
+      // Live mode starts empty - real data loads asynchronously from IndexedDB in the bootstrap effect below
+      return {};
   });
+
+  /**
+   * DESIGN DECISION: Async storage bootstrap
+   *
+   * IndexedDB reads are asynchronous, unlike the old synchronous localStorage reads,
+   * so initial data can't be loaded inside the useState initializers above. Instead we
+   * start with empty defaults and load the real data here once on mount, gating the
+   * main UI render on `isDataLoaded` to avoid a flash of empty state.
+   *
+   * Demo mode has no persisted data to load, but still needs the tutorial-completed
+   * flag, so it goes through the same gate for a consistent (and effectively instant) path.
+   */
+  // Subscribed before the bootstrap effect below so we catch degradation that happens during the initial load too.
+  useEffect(() => {
+    return onStorageDegraded(() => {
+      toast.showError('Storage is unavailable in this browser (e.g. private browsing or quota limits) - your data will not be saved after this tab closes.');
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (mode === 'live') {
+          await migrateFromLocalStorage();
+          const [inv, led, mem, msgs, appr, tutorialCompleted] = await Promise.all([
+            getInventory(), getLedger(), getMemories(), getMessages(), getApprovedOrchestrations(), getTutorialCompleted()
+          ]);
+          if (cancelled) return;
+          setInventory({ fixed: deduplicateTasks(inv.fixed || []), flexible: deduplicateTasks(inv.flexible || []) });
+          setLedger(led);
+          setMemories(mem);
+          setAllMessages(msgs);
+          setApprovedOrchestrations(appr);
+          setShowTutorial(!tutorialCompleted);
+        } else {
+          const tutorialCompleted = await getTutorialCompleted();
+          if (cancelled) return;
+          setShowTutorial(!tutorialCompleted);
+        }
+      } catch (err) {
+        console.error('Failed to load stored data, continuing with defaults', err);
+      } finally {
+        if (!cancelled) setIsDataLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   /**
    * DESIGN DECISION: Persistence Effect
@@ -733,24 +779,27 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
    * Storage stats are updated asynchronously to avoid blocking renders.
    */
   useEffect(() => {
-         // In demo mode, do NOT save to localStorage to avoid polluting live data
+         // In demo mode, do NOT persist to avoid polluting live data
          if (mode === 'demo') return;
-         
-         localStorage.setItem('life_ledger', JSON.stringify(ledger)); 
-         localStorage.setItem('life_inventory', JSON.stringify(inventory)); 
-         localStorage.setItem('life_messages', JSON.stringify(allMessages));
-         localStorage.setItem('life_memories', JSON.stringify(memories));
-         localStorage.setItem('approved_orchestrations', JSON.stringify(approvedOrchestrations));
-         localStorage.setItem('life_last_active', Date.now().toString()); // update active time
+         // Skip until the initial async load completes, so we don't overwrite real data with empty defaults
+         if (!isDataLoaded) return;
+
+         persistLedger(ledger).catch(e => console.error('Failed to save ledger', e));
+         persistInventory(inventory).catch(e => console.error('Failed to save inventory', e));
+         setMessages(allMessages).catch(e => console.error('Failed to save messages', e));
+         persistMemories(memories).catch(e => console.error('Failed to save memories', e));
+         persistApprovedOrchestrations(approvedOrchestrations).catch(e => console.error('Failed to save approved orchestrations', e));
+         setLastActive(Date.now()).catch(e => console.error('Failed to save last active time', e)); // update active time
          
         // safe update of stats
         storageService.getStats().then(stats => setStorageStats(stats)).catch(e => console.error("Stats error", e));
 
-  }, [ledger, inventory, memories, allMessages, approvedOrchestrations, mode]);
+  }, [ledger, inventory, memories, allMessages, approvedOrchestrations, mode, isDataLoaded]);
   
   // Cleanup old approved orchestrations (older than 7 days)
   useEffect(() => {
     if (mode === 'demo') return;
+    if (!isDataLoaded) return; // wait for the real orchestrations to be loaded from IndexedDB first
     
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 7);
@@ -768,7 +817,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       
       return cleaned;
     });
-  }, [mode]); // Run only on mount
+  }, [mode, isDataLoaded]); // Run once the real data has loaded
   
   // Clean up any potential hydration mismatches
   const [mounted, setMounted] = useState(false);
@@ -793,11 +842,12 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   const ledgerRef = useRef<RelationshipLedger>(ledger);
   useEffect(() => { ledgerRef.current = ledger; }, [ledger]);
 
-  // Worsening-only auto-recalculation: run once on mount.
+  // Worsening-only auto-recalculation: run once after the initial data load completes.
   // Time can degrade a status, but only an explicit log_checkin can improve it.
   // This ensures statuses stay accurate after the app has been closed for several days.
   useEffect(() => {
     if (mode === 'demo') return; // Never mutate demo data
+    if (!isDataLoaded) return; // wait for the real ledger to be loaded from IndexedDB
     const SEVERITY: Record<Person['status'], number> = { 'Stable': 0, 'Needs Attention': 1, 'Critical': 2, 'Overdue': 3 };
     setLedger(prev => {
       let changed = false;
@@ -813,14 +863,14 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       return changed ? next : prev;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentionally empty — run once on mount only
+  }, [isDataLoaded]); // run once, right after data finishes loading
 
   const inventoryRef = useRef<LifeInventory>(inventory);
   useEffect(() => { inventoryRef.current = inventory; }, [inventory]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(() => !localStorage.getItem('life_tutorial_completed'));
+  const [showTutorial, setShowTutorial] = useState(false); // set from storage in the bootstrap effect above
   const pendingProposalRef = useRef<OrchestrationProposal | null>(null);
   const pendingContactRef = useRef<Person[]>([]);
   const initializedDateRef = useRef<string>('');
@@ -1015,7 +1065,6 @@ ${memoryContext}${reinitRosterContext}`);
   const handleClearAllHistory = async () => {
       if (confirm("Are you sure? This will wipe ALL data, including the inventory, ledger, memories, and chat history. The app will reset to a fresh install state.")) {
           await storageService.clearAll();
-          localStorage.clear();
           window.location.reload();
       }
   };
@@ -2122,7 +2171,7 @@ ${memoryContext}${ledgerRosterContext}`);
   const handleTutorialComplete = async () => {
       justCompletedTutorialRef.current = true; // set BEFORE setShowTutorial triggers useEffect
       setShowTutorial(false);
-      localStorage.setItem('life_tutorial_completed', 'true');
+      setTutorialCompleted().catch(e => console.error('Failed to save tutorial completion', e));
 
       // Initialize session with full context so the intro message has all tools and state
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -2172,7 +2221,7 @@ ${memoryContext}${ledgerRosterContext}`);
 
   const handleTutorialSkip = () => {
       setShowTutorial(false);
-      localStorage.setItem('life_tutorial_completed', 'true');
+      setTutorialCompleted().catch(e => console.error('Failed to save tutorial completion', e));
       
       // Initialize session even when skipping
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -2207,6 +2256,15 @@ User Mode: ${mode}
 User Timezone: ${timezone}
 ${memoryContext}`);
   };
+
+  // Storage bootstrap (IndexedDB load + tutorial-flag check) hasn't finished yet
+  if (!isDataLoaded) {
+    return (
+      <div className="h-dvh w-full flex items-center justify-center bg-slate-100">
+        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-dvh w-full flex flex-col bg-slate-100 text-slate-800 font-sans overflow-hidden">
