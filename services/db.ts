@@ -39,13 +39,36 @@ const STORE_NAMES: StoreName[] = ['inventory', 'ledger', 'memories', 'messages',
 // In-memory fallback used when IndexedDB can't be opened at all.
 const memoryFallback = new Map<StoreName, Map<string, any>>(STORE_NAMES.map(name => [name, new Map()]));
 let degraded = false;
+const degradedListeners = new Set<() => void>();
+
+/** Marks the session as degraded (in-memory only) and notifies subscribers, once. */
+const markDegraded = (context: string, err: unknown): void => {
+  console.error(`[db] ${context}`, err);
+  if (!degraded) {
+    degraded = true;
+    degradedListeners.forEach(listener => listener());
+  }
+};
+
+/** Subscribe to be notified the moment storage degrades to in-memory-only. Returns an unsubscribe fn. */
+export const onDegraded = (listener: () => void): (() => void) => {
+  degradedListeners.add(listener);
+  return () => degradedListeners.delete(listener);
+};
 
 let dbPromise: Promise<IDBPDatabase<LifeSystemDB>> | null = null;
 
 const getDB = (): Promise<IDBPDatabase<LifeSystemDB>> => {
   if (!dbPromise) {
     dbPromise = openDB<LifeSystemDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, _oldVersion, _newVersion, transaction) {
+        // Recreate any store left over from an older, incompatible schema (e.g. a
+        // previous version keyed 'inventory'/'ledger' by userId instead of 'key').
+        for (const name of STORE_NAMES) {
+          if (db.objectStoreNames.contains(name) && transaction.objectStore(name).keyPath !== 'key') {
+            db.deleteObjectStore(name);
+          }
+        }
         for (const name of STORE_NAMES) {
           if (!db.objectStoreNames.contains(name)) {
             db.createObjectStore(name, { keyPath: 'key' });
@@ -53,8 +76,7 @@ const getDB = (): Promise<IDBPDatabase<LifeSystemDB>> => {
         }
       },
     }).catch(err => {
-      console.error('[db] Failed to open IndexedDB, falling back to in-memory storage', err);
-      degraded = true;
+      markDegraded('Failed to open IndexedDB, falling back to in-memory storage', err);
       throw err;
     });
   }
@@ -66,7 +88,7 @@ export const isDegraded = (): boolean => degraded;
 /** Probes whether IndexedDB is usable in this browser context (private browsing, quota, etc). */
 export const isIndexedDBAvailable = async (): Promise<boolean> => {
   if (typeof indexedDB === 'undefined') {
-    degraded = true;
+    markDegraded('indexedDB is undefined in this context', new Error('indexedDB unavailable'));
     return false;
   }
   try {
@@ -86,7 +108,7 @@ export const getValue = async <T>(store: StoreName, defaultValue: T): Promise<T>
     const record = await db.get(store, SINGLETON_KEY);
     return (record as any)?.data ?? (record as any)?.value ?? defaultValue;
   } catch (err) {
-    console.error(`[db] getValue(${store}) failed, using in-memory fallback`, err);
+    markDegraded(`getValue(${store}) failed, using in-memory fallback`, err);
     return memoryFallback.get(store)!.get(SINGLETON_KEY) ?? defaultValue;
   }
 };
@@ -99,8 +121,7 @@ export const setValue = async <T>(store: StoreName, value: T): Promise<void> => 
     const record = store === 'meta' ? { key: SINGLETON_KEY, value } : { key: SINGLETON_KEY, data: value };
     await db.put(store, record as any);
   } catch (err) {
-    console.error(`[db] setValue(${store}) failed, kept in-memory only`, err);
-    degraded = true;
+    markDegraded(`setValue(${store}) failed, kept in-memory only`, err);
   }
 };
 
@@ -115,8 +136,7 @@ export const clearAllStores = async (): Promise<void> => {
     await Promise.all(STORE_NAMES.map(name => tx.objectStore(name).clear()));
     await tx.done;
   } catch (err) {
-    console.error('[db] clearAllStores failed', err);
-    degraded = true;
+    markDegraded('clearAllStores failed', err);
   }
 };
 

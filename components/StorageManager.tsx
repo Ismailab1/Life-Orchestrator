@@ -75,7 +75,7 @@ export const StorageManager: React.FC<Props> = ({ stats, onClose, onClearDate, o
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Usage</span>
                 <p className={`text-2xl font-bold ${isCritical ? 'text-red-600' : isHigh ? 'text-amber-600' : 'text-indigo-600'}`}>
-                   {stats.percentage.toFixed(1)}% <span className="text-sm font-medium text-slate-400">of 5MB</span>
+                   {stats.percentage.toFixed(1)}% <span className="text-sm font-medium text-slate-400">of {storageService.formatBytes(stats.totalQuota)}</span>
                 </p>
               </div>
               <p className="text-xs font-bold text-slate-500">{storageService.formatBytes(stats.usedBytes)}</p>

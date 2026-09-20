@@ -34,7 +34,7 @@ import { compressImage } from './services/imageService';
 import {
   storageService,
   migrateFromLocalStorage,
-  isStorageDegraded,
+  onStorageDegraded,
   getInventory,
   setInventory as persistInventory,
   getLedger,
@@ -722,30 +722,40 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
    * Demo mode has no persisted data to load, but still needs the tutorial-completed
    * flag, so it goes through the same gate for a consistent (and effectively instant) path.
    */
+  // Subscribed before the bootstrap effect below so we catch degradation that happens during the initial load too.
+  useEffect(() => {
+    return onStorageDegraded(() => {
+      toast.showError('Storage is unavailable in this browser (e.g. private browsing or quota limits) - your data will not be saved after this tab closes.');
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (mode === 'live') {
-        await migrateFromLocalStorage();
-        const [inv, led, mem, msgs, appr, tutorialCompleted] = await Promise.all([
-          getInventory(), getLedger(), getMemories(), getMessages(), getApprovedOrchestrations(), getTutorialCompleted()
-        ]);
-        if (cancelled) return;
-        setInventory({ fixed: deduplicateTasks(inv.fixed || []), flexible: deduplicateTasks(inv.flexible || []) });
-        setLedger(led);
-        setMemories(mem);
-        setAllMessages(msgs);
-        setApprovedOrchestrations(appr);
-        setShowTutorial(!tutorialCompleted);
-        if (isStorageDegraded()) {
-          toast.showError('Storage is unavailable in this browser (e.g. private browsing or quota limits) - your data will not be saved after this tab closes.');
+      try {
+        if (mode === 'live') {
+          await migrateFromLocalStorage();
+          const [inv, led, mem, msgs, appr, tutorialCompleted] = await Promise.all([
+            getInventory(), getLedger(), getMemories(), getMessages(), getApprovedOrchestrations(), getTutorialCompleted()
+          ]);
+          if (cancelled) return;
+          setInventory({ fixed: deduplicateTasks(inv.fixed || []), flexible: deduplicateTasks(inv.flexible || []) });
+          setLedger(led);
+          setMemories(mem);
+          setAllMessages(msgs);
+          setApprovedOrchestrations(appr);
+          setShowTutorial(!tutorialCompleted);
+        } else {
+          const tutorialCompleted = await getTutorialCompleted();
+          if (cancelled) return;
+          setShowTutorial(!tutorialCompleted);
         }
-      } else {
-        const tutorialCompleted = await getTutorialCompleted();
-        if (cancelled) return;
-        setShowTutorial(!tutorialCompleted);
+      } catch (err) {
+        console.error('Failed to load stored data, continuing with defaults', err);
+      } finally {
+        if (!cancelled) setIsDataLoaded(true);
       }
-      if (!cancelled) setIsDataLoaded(true);
     })();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -789,6 +799,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
   // Cleanup old approved orchestrations (older than 7 days)
   useEffect(() => {
     if (mode === 'demo') return;
+    if (!isDataLoaded) return; // wait for the real orchestrations to be loaded from IndexedDB first
     
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 7);
@@ -806,7 +817,7 @@ const App: React.FC<AppProps> = ({ mode, onBack }) => {
       
       return cleaned;
     });
-  }, [mode]); // Run only on mount
+  }, [mode, isDataLoaded]); // Run once the real data has loaded
   
   // Clean up any potential hydration mismatches
   const [mounted, setMounted] = useState(false);

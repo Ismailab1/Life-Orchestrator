@@ -31,8 +31,28 @@ const setMeta = async (patch: Partial<MetaBag>): Promise<void> => {
   await db.setValue('meta', { ...current, ...patch });
 };
 
+// localStorage can throw SecurityError when storage is disabled entirely (some private modes) -
+// treat that the same as "key not present" rather than letting it crash the caller.
+const safeGetItem = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+const safeRemoveItem = (key: string): void => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // ignore - nothing to clean up if storage isn't accessible
+  }
+};
+
 /** True once IndexedDB has failed and we're running on an in-memory fallback for this session. */
 export const isStorageDegraded = (): boolean => db.isDegraded();
+
+/** Subscribe to be notified the moment storage degrades to in-memory-only (e.g. a later quota error). */
+export const onStorageDegraded = db.onDegraded;
 
 /**
  * One-time migration: copies the legacy localStorage keys into IndexedDB, then
@@ -45,20 +65,20 @@ export const migrateFromLocalStorage = async (): Promise<void> => {
 
   const readJson = <T>(key: string, fallback: T): T => {
     try {
-      const raw = localStorage.getItem(key);
+      const raw = safeGetItem(key);
       return raw ? (JSON.parse(raw) as T) : fallback;
     } catch {
       return fallback;
     }
   };
 
-  const hadLedger = localStorage.getItem(LEGACY_KEYS.ledger) !== null;
-  const hadInventory = localStorage.getItem(LEGACY_KEYS.inventory) !== null;
-  const hadMessages = localStorage.getItem(LEGACY_KEYS.messages) !== null;
-  const hadMemories = localStorage.getItem(LEGACY_KEYS.memories) !== null;
-  const hadOrchestrations = localStorage.getItem(LEGACY_KEYS.approvedOrchestrations) !== null;
-  const hadTutorial = localStorage.getItem(LEGACY_KEYS.tutorialCompleted) !== null;
-  const hadLastActive = localStorage.getItem(LEGACY_KEYS.lastActive) !== null;
+  const hadLedger = safeGetItem(LEGACY_KEYS.ledger) !== null;
+  const hadInventory = safeGetItem(LEGACY_KEYS.inventory) !== null;
+  const hadMessages = safeGetItem(LEGACY_KEYS.messages) !== null;
+  const hadMemories = safeGetItem(LEGACY_KEYS.memories) !== null;
+  const hadOrchestrations = safeGetItem(LEGACY_KEYS.approvedOrchestrations) !== null;
+  const hadTutorial = safeGetItem(LEGACY_KEYS.tutorialCompleted) !== null;
+  const hadLastActive = safeGetItem(LEGACY_KEYS.lastActive) !== null;
 
   if (hadLedger) await db.setValue('ledger', readJson<RelationshipLedger>(LEGACY_KEYS.ledger, {}));
   if (hadInventory) await db.setValue('inventory', readJson<LifeInventory>(LEGACY_KEYS.inventory, { fixed: [], flexible: [] }));
@@ -69,14 +89,14 @@ export const migrateFromLocalStorage = async (): Promise<void> => {
   const metaPatch: Partial<MetaBag> = { migrated: true };
   if (hadTutorial) metaPatch.tutorialCompleted = true;
   if (hadLastActive) {
-    const lastActive = parseInt(localStorage.getItem(LEGACY_KEYS.lastActive) || '0', 10);
+    const lastActive = parseInt(safeGetItem(LEGACY_KEYS.lastActive) || '0', 10);
     if (!Number.isNaN(lastActive)) metaPatch.lastActive = lastActive;
   }
   await setMeta(metaPatch);
 
   // Clean up only the keys we own, never a blanket localStorage.clear().
   if (!db.isDegraded()) {
-    Object.values(LEGACY_KEYS).forEach(key => localStorage.removeItem(key));
+    Object.values(LEGACY_KEYS).forEach(safeRemoveItem);
   }
 };
 
@@ -183,6 +203,9 @@ export const storageService = {
 
   async clearAll(): Promise<void> {
     await db.clearAllStores();
+    // Also remove the legacy keys - migration deliberately leaves them in place
+    // when storage is degraded, so a real reset must clear those too.
+    Object.values(LEGACY_KEYS).forEach(safeRemoveItem);
   }
 };
 
