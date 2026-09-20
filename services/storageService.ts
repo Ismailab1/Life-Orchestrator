@@ -1,111 +1,189 @@
 /**
- * DESIGN DECISION: Storage Management Service
- * 
- * This service monitors and manages browser storage to prevent quota exhaustion.
- * 
- * Why a dedicated storage service?
- * 1. **Quota awareness**: LocalStorage has a ~5MB hard limit. Exceeding it breaks the app.
- * 2. **Proactive management**: Users see warnings before hitting limits
- * 3. **Per-data breakdown**: Identify what's consuming space (usually chat history)
- * 4. **Graceful cleanup**: Enable targeted deletion (e.g., old messages) vs. nuclear reset
- * 
- * Storage Strategy:
- * - localStorage: Primary persistence (synchronous, simple, sufficient)
- * - IndexedDB: Removed from this version (was causing migration complexity)
- * - Future: IndexedDB for embeddings/media, localStorage for structured data
- * 
- * The service calculates byte sizes using Blob conversion, which is accurate for
- * UTF-8 strings (handles emoji, special characters correctly).
+ * Public storage module - the single place the rest of the app talks to for persistence.
+ *
+ * Backed by IndexedDB (see ./db.ts), with a one-time migration from the old
+ * localStorage-based storage on first load. Callers never touch localStorage
+ * or IndexedDB directly.
  */
 
-import { StorageStats, ChatHistory } from "../types";
+import { StorageStats, ChatHistory, LifeInventory, RelationshipLedger, Memory, ApprovedOrchestration } from "../types";
+import * as db from "./db";
+
+const LEGACY_KEYS = {
+  ledger: 'life_ledger',
+  inventory: 'life_inventory',
+  messages: 'life_messages',
+  memories: 'life_memories',
+  approvedOrchestrations: 'approved_orchestrations',
+  tutorialCompleted: 'life_tutorial_completed',
+  lastActive: 'life_last_active',
+} as const;
+
+interface MetaBag {
+  migrated?: boolean;
+  tutorialCompleted?: boolean;
+  lastActive?: number;
+}
+
+const getMeta = (): Promise<MetaBag> => db.getValue<MetaBag>('meta', {});
+const setMeta = async (patch: Partial<MetaBag>): Promise<void> => {
+  const current = await getMeta();
+  await db.setValue('meta', { ...current, ...patch });
+};
+
+/** True once IndexedDB has failed and we're running on an in-memory fallback for this session. */
+export const isStorageDegraded = (): boolean => db.isDegraded();
+
+/**
+ * One-time migration: copies the legacy localStorage keys into IndexedDB, then
+ * removes just those keys (never a blanket localStorage.clear()). Safe to call
+ * on every app start - it no-ops once the marker is set.
+ */
+export const migrateFromLocalStorage = async (): Promise<void> => {
+  const meta = await getMeta();
+  if (meta.migrated) return;
+
+  const readJson = <T>(key: string, fallback: T): T => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as T) : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const hadLedger = localStorage.getItem(LEGACY_KEYS.ledger) !== null;
+  const hadInventory = localStorage.getItem(LEGACY_KEYS.inventory) !== null;
+  const hadMessages = localStorage.getItem(LEGACY_KEYS.messages) !== null;
+  const hadMemories = localStorage.getItem(LEGACY_KEYS.memories) !== null;
+  const hadOrchestrations = localStorage.getItem(LEGACY_KEYS.approvedOrchestrations) !== null;
+  const hadTutorial = localStorage.getItem(LEGACY_KEYS.tutorialCompleted) !== null;
+  const hadLastActive = localStorage.getItem(LEGACY_KEYS.lastActive) !== null;
+
+  if (hadLedger) await db.setValue('ledger', readJson<RelationshipLedger>(LEGACY_KEYS.ledger, {}));
+  if (hadInventory) await db.setValue('inventory', readJson<LifeInventory>(LEGACY_KEYS.inventory, { fixed: [], flexible: [] }));
+  if (hadMessages) await db.setValue('messages', readJson<ChatHistory>(LEGACY_KEYS.messages, {}));
+  if (hadMemories) await db.setValue('memories', readJson<Memory[]>(LEGACY_KEYS.memories, []));
+  if (hadOrchestrations) await db.setValue('approvedOrchestrations', readJson<Record<string, ApprovedOrchestration>>(LEGACY_KEYS.approvedOrchestrations, {}));
+
+  const metaPatch: Partial<MetaBag> = { migrated: true };
+  if (hadTutorial) metaPatch.tutorialCompleted = true;
+  if (hadLastActive) {
+    const lastActive = parseInt(localStorage.getItem(LEGACY_KEYS.lastActive) || '0', 10);
+    if (!Number.isNaN(lastActive)) metaPatch.lastActive = lastActive;
+  }
+  await setMeta(metaPatch);
+
+  // Clean up only the keys we own, never a blanket localStorage.clear().
+  if (!db.isDegraded()) {
+    Object.values(LEGACY_KEYS).forEach(key => localStorage.removeItem(key));
+  }
+};
+
+// --- Typed getters/setters, one per data item ---
+
+export const getInventory = (): Promise<LifeInventory> =>
+  db.getValue<LifeInventory>('inventory', { fixed: [], flexible: [] });
+export const setInventory = (inventory: LifeInventory): Promise<void> =>
+  db.setValue('inventory', inventory);
+
+export const getLedger = (): Promise<RelationshipLedger> =>
+  db.getValue<RelationshipLedger>('ledger', {});
+export const setLedger = (ledger: RelationshipLedger): Promise<void> =>
+  db.setValue('ledger', ledger);
+
+export const getMemories = (): Promise<Memory[]> =>
+  db.getValue<Memory[]>('memories', []);
+export const setMemories = (memories: Memory[]): Promise<void> =>
+  db.setValue('memories', memories);
+
+export const getMessages = (): Promise<ChatHistory> =>
+  db.getValue<ChatHistory>('messages', {});
+export const setMessages = (history: ChatHistory): Promise<void> =>
+  db.setValue('messages', history);
+
+export const getApprovedOrchestrations = (): Promise<Record<string, ApprovedOrchestration>> =>
+  db.getValue<Record<string, ApprovedOrchestration>>('approvedOrchestrations', {});
+export const setApprovedOrchestrations = (map: Record<string, ApprovedOrchestration>): Promise<void> =>
+  db.setValue('approvedOrchestrations', map);
+
+export const getTutorialCompleted = async (): Promise<boolean> => !!(await getMeta()).tutorialCompleted;
+export const setTutorialCompleted = (completed = true): Promise<void> => setMeta({ tutorialCompleted: completed });
+
+export const getLastActive = async (): Promise<number> => (await getMeta()).lastActive ?? 0;
+export const setLastActive = (timestamp: number): Promise<void> => setMeta({ lastActive: timestamp });
+
+// --- Quota monitoring, preserved public interface for StorageManager.tsx ---
 
 export const storageService = {
   /**
-   * getStats: Calculate storage usage breakdown
-   * DESIGN DECISION: Real-time calculation vs cached stats
-   * 
-   * Stats are calculated on-demand by iterating localStorage rather than cached.
-   * This approach:
-   * - Always accurate (no stale data)
-   * - Minimal performance impact (localStorage is fast, ~1ms calculation)
-   * - Simpler implementation (no cache invalidation logic)
-   * 
-   * The function calculates:
-   * - Total usage across all keys
-   * - Per-category breakdown (messages, ledger, inventory, memories)
-   * - Per-date message sizes for granular cleanup
-   * 
-   * The 5MB quota is a soft limit (actual varies by browser), but 5MB is conservative.
+   * getStats: Calculate storage usage breakdown.
+   * Uses navigator.storage.estimate() for real usage/quota when available,
+   * falling back to a generous constant otherwise.
    */
   async getStats(): Promise<StorageStats> {
     try {
-        const totalQuota = 5 * 1024 * 1024; // 5MB localStorage soft limit
-        
-        // Calculate actual localStorage usage for main data items
-        const ledgerStr = localStorage.getItem('life_ledger') || '{}';
-        const inventoryStr = localStorage.getItem('life_inventory') || '{"fixed":[],"flexible":[]}';
-        const messagesStr = localStorage.getItem('life_messages') || '{}';
-        const memoriesStr = localStorage.getItem('life_memories') || '[]';
-        
-        const ledgerSize = new Blob([ledgerStr]).size;
-        const inventorySize = new Blob([inventoryStr]).size;
-        const messagesSize = new Blob([messagesStr]).size;
-        const memoriesSize = new Blob([memoriesStr]).size;
-        
-        // Calculate total localStorage usage including all items (tutorial flags, tokens, etc.)
-        let totalUsed = 0;
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key) {
-                const value = localStorage.getItem(key) || '';
-                totalUsed += new Blob([key]).size + new Blob([value]).size;
-            }
+      const [messagesSize, ledgerSize, inventorySize, memoriesSize, messages] = await Promise.all([
+        db.getStoreByteSize('messages'),
+        db.getStoreByteSize('ledger'),
+        db.getStoreByteSize('inventory'),
+        db.getStoreByteSize('memories'),
+        getMessages(),
+      ]);
+
+      let usedBytes = messagesSize + ledgerSize + inventorySize + memoriesSize;
+      let totalQuota = 200 * 1024 * 1024; // generous fallback (200MB) when estimate() is unavailable
+
+      if (navigator.storage && navigator.storage.estimate) {
+        try {
+          const estimate = await navigator.storage.estimate();
+          if (typeof estimate.usage === 'number') usedBytes = estimate.usage;
+          if (typeof estimate.quota === 'number' && estimate.quota > 0) totalQuota = estimate.quota;
+        } catch {
+          // keep fallback values
         }
-        
-        // Parse messages to get per-date breakdown
-        const messages: ChatHistory = JSON.parse(messagesStr);
-        const messagesByDate: Record<string, number> = {};
-        Object.entries(messages).forEach(([date, msgs]) => {
-            messagesByDate[date] = new Blob([JSON.stringify(msgs)]).size;
-        });
-        
-        return {
-          usedBytes: totalUsed,
-          totalQuota,
-          percentage: (totalUsed / totalQuota) * 100,
-          breakdown: {
-            messages: messagesSize,
-            ledger: ledgerSize,
-            memories: memoriesSize,
-            inventory: inventorySize
-          },
-          messagesByDate
-        };
+      }
+
+      const messagesByDate: Record<string, number> = {};
+      Object.entries(messages).forEach(([date, msgs]) => {
+        messagesByDate[date] = new Blob([JSON.stringify(msgs)]).size;
+      });
+
+      return {
+        usedBytes,
+        totalQuota,
+        percentage: totalQuota > 0 ? (usedBytes / totalQuota) * 100 : 0,
+        breakdown: {
+          messages: messagesSize,
+          ledger: ledgerSize,
+          memories: memoriesSize,
+          inventory: inventorySize,
+        },
+        messagesByDate,
+      };
     } catch (error) {
-        console.error("Failed to get storage stats", error);
-        return {
-            usedBytes: 0,
-            totalQuota: 5 * 1024 * 1024,
-            percentage: 0,
-            breakdown: { messages: 0, ledger: 0, memories: 0, inventory: 0 },
-            messagesByDate: {}
-        };
+      console.error("Failed to get storage stats", error);
+      return {
+        usedBytes: 0,
+        totalQuota: 200 * 1024 * 1024,
+        percentage: 0,
+        breakdown: { messages: 0, ledger: 0, memories: 0, inventory: 0 },
+        messagesByDate: {},
+      };
     }
   },
 
   formatBytes(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   },
 
   async clearAll(): Promise<void> {
-      // IndexedDB has been removed - localStorage clearing happens in App.tsx
-      console.log('[StorageService] clearAll called - localStorage managed by App.tsx');
-      return Promise.resolve();
+    await db.clearAllStores();
   }
 };
+
 
