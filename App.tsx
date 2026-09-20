@@ -26,6 +26,7 @@ import { LifeInventory, RelationshipLedger, ChatMessage, OrchestrationProposal, 
 import { KinshipLedgerView } from './components/KinshipLedger';
 import { CareerInventoryView } from './components/CareerInventory';
 import { ChatInterface } from './components/ChatInterface';
+import { DashboardSummary } from './components/DashboardSummary';
 import { geminiService } from './services/geminiService';
 import { GoogleCalendarService } from './services/googleCalendarService';
 import { TutorialOverlay } from './components/TutorialOverlay';
@@ -2277,8 +2278,15 @@ ${memoryContext}`);
           </div>
         </div>
       </header>
-      <main className="flex-1 min-h-0 w-full max-w-7xl mx-auto p-4 sm:px-6 lg:px-8 py-4 lg:py-6">
-        <div className="h-full flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-8">
+      <main className="flex-1 min-h-0 w-full max-w-7xl mx-auto p-4 sm:px-6 lg:px-8 py-4 lg:py-6 flex flex-col overflow-y-auto lg:overflow-hidden">
+        <DashboardSummary
+          currentDate={currentDate}
+          dailyInventory={dailyInventory}
+          ledger={ledger}
+          allMessages={allMessages}
+          storageStats={storageStats}
+        />
+        <div className="flex-1 lg:min-h-0 flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-8">
           <div className="flex-1 lg:col-span-4 min-h-0 flex flex-col order-2 lg:order-1 overflow-hidden">
              <div className="flex-1 flex flex-col gap-4 min-h-0 lg:overflow-y-auto custom-scrollbar pb-14 lg:pb-0 pr-1">
                 <section data-tutorial="kinship-ledger" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col shrink-0">
